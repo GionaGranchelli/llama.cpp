@@ -415,6 +415,26 @@ static void ggml_cuda_flash_attn_ext_mma_f16(ggml_backend_cuda_context & ctx, gg
     }
 }
 
+static void ggml_cuda_flash_attn_ext_mma_f16_q8_direct(ggml_backend_cuda_context & ctx, ggml_tensor * dst) {
+#if defined(GGML_USE_HIP)
+    const ggml_tensor * Q = dst->src[0];
+    GGML_ASSERT(Q->ne[0] == 256 && Q->ne[2] / dst->src[1]->ne[2] == 6);
+    GGML_ASSERT(dst->src[1]->type == GGML_TYPE_Q8_0 && dst->src[2]->type == GGML_TYPE_Q8_0);
+
+    if (Q->ne[1] <= 8) {
+        ggml_cuda_flash_attn_ext_mma_f16_case<256, 256, 8, 2, true>(ctx, dst);
+    } else if (Q->ne[1] <= 16) {
+        ggml_cuda_flash_attn_ext_mma_f16_case<256, 256, 16, 2, true>(ctx, dst);
+    } else {
+        ggml_cuda_flash_attn_ext_mma_f16_case<256, 256, 32, 2, true>(ctx, dst);
+    }
+#else
+    GGML_UNUSED(ctx);
+    GGML_UNUSED(dst);
+    GGML_ABORT("direct Q8 MFMA attention requires HIP");
+#endif
+}
+
 #define FATTN_VEC_CASE(D, type_K_case, type_V_case)                                                                                \
     if constexpr (GGML_CUDA_FA_##type_K_case##_##type_V_case) {                                                                    \
         const bool type_K_okay = type_K == GGML_TYPE_##type_K_case || (type_K == GGML_TYPE_F32 && GGML_TYPE_##type_K_case == GGML_TYPE_F16); \
@@ -517,6 +537,7 @@ enum best_fattn_kernel {
     BEST_FATTN_KERNEL_NONE    =   0,
     BEST_FATTN_KERNEL_TILE    = 200,
     BEST_FATTN_KERNEL_TILE_Q8_DIRECT = 201,
+    BEST_FATTN_KERNEL_MMA_Q8_DIRECT = 202,
     BEST_FATTN_KERNEL_VEC     = 100,
     BEST_FATTN_KERNEL_MMA_F16 = 400,
 };
@@ -682,6 +703,13 @@ static best_fattn_kernel ggml_cuda_get_best_fattn_kernel(const int device, const
 
     // AMD MFMA needs a certain minimum batch size to outscale the tile kernel for large head sizes.
     const char * q8_direct_tile_env = getenv("GGML_CUDA_FA_Q8_DIRECT_TILE");
+    const char * q8_direct_mma_env = getenv("GGML_CUDA_FA_Q8_DIRECT_MFMA");
+    if (q8_direct_mma_env != nullptr && q8_direct_mma_env[0] != '\0' && strcmp(q8_direct_mma_env, "0") != 0 &&
+            amd_mfma_available(cc) && Q->ne[0] == 256 && Q->ne[1] > 2 && gqa_ratio == 6 &&
+            K->type == GGML_TYPE_Q8_0 && V->type == GGML_TYPE_Q8_0) {
+        return BEST_FATTN_KERNEL_MMA_Q8_DIRECT;
+    }
+
     if (q8_direct_tile_env != nullptr && q8_direct_tile_env[0] != '\0' && strcmp(q8_direct_tile_env, "0") != 0 &&
             cc == GGML_CUDA_CC_VEGA20 && Q->ne[0] == 256 && Q->ne[1] > 2 && gqa_ratio == 6 &&
             K->type == GGML_TYPE_Q8_0 && V->type == GGML_TYPE_Q8_0 && can_use_vector_kernel) {
@@ -749,6 +777,8 @@ size_t ggml_cuda_flash_attn_ext_get_alloc_size(int device, const ggml_tensor * d
             break;
         case BEST_FATTN_KERNEL_TILE_Q8_DIRECT:
             break;
+        case BEST_FATTN_KERNEL_MMA_Q8_DIRECT:
+            break;
         case BEST_FATTN_KERNEL_VEC: {
             const bool f16_fallback = ggml_cuda_get_fattn_vec_case(Q->ne[0], K->type, V->type) == nullptr;
             need_f16_K = K->type == GGML_TYPE_F32 || f16_fallback;
@@ -779,6 +809,14 @@ void ggml_cuda_flash_attn_ext(ggml_backend_cuda_context & ctx, ggml_tensor * dst
                 logged = true;
             }
             ggml_cuda_flash_attn_ext_tile_q8(ctx, dst);
+        } break;
+        case BEST_FATTN_KERNEL_MMA_Q8_DIRECT: {
+            static bool logged = false;
+            if (!logged) {
+                GGML_LOG_INFO("%s: GGML_CUDA_FA_Q8_DIRECT_MFMA selected direct-Q8 GFX906 MFMA attention\n", __func__);
+                logged = true;
+            }
+            ggml_cuda_flash_attn_ext_mma_f16_q8_direct(ctx, dst);
         } break;
         case BEST_FATTN_KERNEL_VEC:
             ggml_cuda_flash_attn_ext_vec(ctx, dst);
