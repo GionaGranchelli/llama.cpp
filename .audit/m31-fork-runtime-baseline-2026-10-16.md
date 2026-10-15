@@ -94,6 +94,8 @@ Both runs used the same build (`9e057e6`), Qwen3.8-27B Q4_K_M checksum, Q8 K/V c
 
 The temporary selector and its test-only case were removed after the negative screen. The default llama.cpp route remains intact. Keep the evidence and pursue a Q8 K/V tile path that shares fragments across GQA heads while using full-precision Q in QK, avoiding the failed MIInfer Q8-query approximation.
 
+A second cold-start default 8K run completed in `36.0021 s` (`227.542` tok/s), with junction rising from 29 C to a sampled 77 C and cooling afterward. This supports the repeatability of the control. The earlier Q8-vector candidate began from 38 C, so its one-sample comparison remains directional; rerun it under a matched thermal start only if that discarded route is needed again.
+
 ## Next action
 
 Keep the pinned 8K result as the runnable control. Next inspect the existing tile kernel's Q8-to-F16 conversion and GQA grouping, then implement the smallest direct-Q8 K/V tile experiment that reuses grouped heads and retains full-precision Q. Run backend numerical checks before another full-model timing. Resolve sustainable power/cooling before attempting 64K again.
