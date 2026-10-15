@@ -98,4 +98,12 @@ A second cold-start default 8K run completed in `36.0021 s` (`227.542` tok/s), w
 
 ## Next action
 
-Keep the pinned 8K result as the runnable control. Next inspect the existing tile kernel's Q8-to-F16 conversion and GQA grouping, then implement the smallest direct-Q8 K/V tile experiment that reuses grouped heads and retains full-precision Q. Run backend numerical checks before another full-model timing. Resolve sustainable power/cooling before attempting 64K again.
+Keep the pinned 8K result as the runnable control. Run a matched 8K screen of the direct-Q8 GQA tile after the card returns to its cold-start temperature. If it is correct and faster, compare a deterministic greedy token against default, then pursue the 64K control only after the live power/cooling setup is sustainable.
+
+## Direct-Q8 GQA tile candidate
+
+The existing `FLASH_ATTN_EXT` tile path converts Q8 K/V to full-size F16 buffers before attention. Added an opt-in GFX906 route for the model's 256-wide Q8/Q8, GQA-ratio-6 prefill. It keeps the upstream grouped tile attention and full-precision Q math, but decodes Q8 K/V directly into each shared-memory tile. It avoids full-cache F16 materialization; it does not use MIInfer's inaccurate Q8-query approximation. Enable with `GGML_CUDA_FA_Q8_DIRECT_TILE=1`; default dispatch is unchanged.
+
+The HIP build completed. With the flag enabled, `test-backend-ops` selected the direct route for the 256-wide GQA-6 Q8/Q8 64-query case and passed all 31 selected 64-query Flash Attention cases against the CPU backend. Full-model behavior and speed are pending.
+
+A same-build default 8K control on GPU2 / BDF `0000:88:00.0` completed in `36.0105 s` (`227.489` prompt tok/s), one sample without warmup. It started at 32 C junction and reached a sampled 76 C. The model checksum and all benchmark settings match the earlier control. The direct-Q8 candidate timing is pending.
