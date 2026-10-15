@@ -146,15 +146,10 @@ The 2048 microbatch completed without allocation failure, with a sampled 19.25 G
 
 This verifies that the pinned fork can allocate a 64K context on GPU2 while keeping all model layers there. It does not verify processing 64K prompt tokens. The full-length prefill remains pending because both power caps are currently at their stock maxima and the 8K run reached the thermal warning line.
 
-## Direct-Q8 MFMA candidate — build, correctness, and 8K screen
+## GFX906 MFMA attempt — invalidated before performance use
 
-Added an exact target-shape `FLASH_ATTN_EXT` test for 256-wide Q/K/V, GQA ratio 6, Q8_0 K/V, 4K KV length, and 64 query rows. On Machinist commit `d722577`, the ROCm 7.2.1 Release HIP build completed for `llama-bench` and `test-backend-ops`. With `GGML_CUDA_FA_Q8_DIRECT_MFMA=1`, the focused test selected the matching Q8 case alongside the F16 control; both passed (`2/2`). The test compares the HIP result against the CPU backend. The default path remains unchanged when the flag is unset.
+The direct-Q8 MFMA prototype did not run on MI50. `amd_mfma_available()` accepts CDNA1 and newer; GFX906 is Vega20 and is below that range. The HIP source defines `AMD_MFMA_AVAILABLE` only for architectures marked `CDNA`, and its `hip.h` defines `CDNA` for gfx908, gfx90a, gfx942, and gfx950, not gfx906. Therefore `GGML_CUDA_FA_Q8_DIRECT_MFMA=1` never selected the prototype on either Machinist MI50.
 
-Ran one 8K full-model screen per MI50 with the candidate enabled. Both used Qwen3.8-27B Q4_K_M (SHA-256 `7e78da5d7e3ae28d178121f58646953305f3e5bd3cb46f4a75584e8b6c6fe169`), 99 GPU layers, Q8 K/V, Flash Attention, `-b 2048 -ub 512`, one no-warmup sample, and 8,192 prompt tokens. The binary reports build commit `4b3a42c` (the direct-MFMA code commit; the later `d722577` commit only added the test case).
+The earlier `test-backend-ops` run and both 8K timings with that flag exercised the default route. In particular, the 35.967 s candidate and 35.951 s default readings on GPU2 cannot be used to judge the prototype. The observed lack of a route log during the verbose model run was the clue; inspecting the architecture guards established the cause. I removed the unreachable prototype.
 
-| MI50 / BDF | Default control | Direct-Q8 MFMA | Candidate delta | Candidate junction (sampled) | Live cap |
-|---|---:|---:|---:|---:|---:|
-| GPU0 / `0000:04:00.0` | 35.4545 s, 231.056 tok/s | 35.4439 s, 231.126 tok/s | -0.03% | 84 C | 225 W |
-| GPU2 / `0000:88:00.0` | Historical: 36.0105 s, 227.489 tok/s; same-build rerun: 35.9510 s, 227.865 tok/s | 35.9674 s, 227.762 tok/s | +0.05% vs same-build rerun | 75 C | 300 W |
-
-The GPU2 same-build control ran immediately after the candidate on the same card, with the same 8K workload, settings, cap and near-identical starting junction (32 C candidate, 33 C control). It took 0.05% less time than the candidate. The GPU0 control is historical and from an earlier build. These are one-sample screens, not qualified measurements; they show no material 8K prefill gain. Correctness is promising at the attention-op level; full-model token/logit equivalence has not yet been checked. Do not enable the route by default. A 64K test is still important because this route avoids the full F16 K/V expansion, but it is not safe to start under the current caps and thermal behavior.
+The real MI50 direct-Q8 candidate remains the GFX906 GQA tile route. I reran the exact 256-wide, GQA-6, Q8/Q8, 4K KV, 64-query case on GPU0 with `GGML_CUDA_FA_Q8_DIRECT_TILE=1`. The runtime logged `selected direct-Q8 GFX906 GQA tile attention`, and the HIP result passed its CPU-reference check (`1/1`). Earlier full-model screens of this route were slower than default at 8K (best six-head tile: 39.135 s vs 36.011 s). The next implementation should exploit GFX906's `sdot4`/DP4A path while sharing K/V work across the six query heads; another MFMA dispatch change cannot run on this GPU.
