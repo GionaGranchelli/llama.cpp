@@ -79,7 +79,7 @@ llama.cpp already has gfx906 `sdot4` support in `ggml/src/ggml-cuda/common.cuh`,
 
 ## Opt-in Q8 vector-prefill dispatch probe
 
-Added an opt-in route through the existing `FLASH_ATTN_EXT` vector kernel for GFX906 when the head size is 256, both cache tensors are Q8_0, and the query batch exceeds two. Enable it with `GGML_CUDA_FA_Q8_VEC_PREFILL=1`; the default dispatch remains unchanged. The route is identified in the runtime log, and its workspace sizing follows the existing vector kernel path.
+Added an opt-in route through the existing `FLASH_ATTN_EXT` vector kernel for GFX906 when the head size is 256, both cache tensors are Q8_0, and the query batch exceeds two. Enable it with `GGML_CUDA_FA_Q8_VEC_PREFILL=1`; the default dispatch remains unchanged. The route is identified in the runtime log, and its workspace sizing follows the existing vector kernel path. Added a Q8/Q8 64-query backend case so the opt-in dispatch can be checked against the backend reference.
 
 This is a screening probe for the existing Q8 dot-product dataflow, not a port of MIInfer's query quantization kernel. The Q8 vector path still quantizes the query, so numerical correctness and full-model utility remain unverified. Build, operator correctness, route selection, and matched full-model timing are pending. Do not treat the implementation as an accepted optimization until those checks pass.
 
