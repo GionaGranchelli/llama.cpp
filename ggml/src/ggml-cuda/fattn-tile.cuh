@@ -479,6 +479,96 @@ static __device__ __forceinline__ void flash_attn_tile_load_tile(
     ggml_cuda_unroll<5>{}(load);
 }
 
+template<int warp_size, int nwarps, int I, int J, int J_padding, bool oob_check>
+static __device__ __forceinline__ void flash_attn_tile_load_tile(
+        const block_q8_0 * const __restrict__ KV, half2 * const __restrict__ tile_KV, const int stride_KV, const int i_sup) {
+    constexpr int cpy_nb = ggml_cuda_get_max_cpy_bytes();
+    constexpr int cpy_ne = cpy_nb / 4;
+
+    auto load = [&] __device__ (const int n) {
+        const int stride_j = warp_size >> n;
+        if (stride_j == 0) return;
+
+        const int j0_start = stride_j == warp_size ? 0 : ((J/2)/cpy_ne) - ((J/2)/cpy_ne) % (2*stride_j);
+        const int j0_stop  =                             ((J/2)/cpy_ne) - ((J/2)/cpy_ne) % (1*stride_j);
+        const int stride_i = warp_size / stride_j;
+        if (j0_start == j0_stop) return;
+
+#pragma unroll
+        for (int i0 = 0; i0 < I; i0 += nwarps*stride_i) {
+            const int i = i0 + threadIdx.y*stride_i + (stride_j == warp_size ? 0 : threadIdx.x / stride_j);
+            if (i0 + nwarps*stride_i <= I || i < I) {
+#pragma unroll
+                for (int j0 = j0_start; j0 < j0_stop; j0 += stride_j) {
+                    const int j = j0*cpy_ne + (stride_j == warp_size ? threadIdx.x : threadIdx.x % stride_j)*cpy_ne;
+                    __align__(16) half2 values[cpy_ne];
+#pragma unroll
+                    for (int l = 0; l < cpy_ne; ++l) {
+                        const int dim = 2*(j + l);
+                        const block_q8_0 * block = !oob_check || i < i_sup ? KV + i*stride_KV + dim/32 : nullptr;
+                        if (block != nullptr) {
+                            const float d = __half2float(block->d);
+                            values[l] = __floats2half2_rn(d*block->qs[dim % 32], d*block->qs[dim % 32 + 1]);
+                        } else {
+                            values[l] = __float2half2_rn(0.0f);
+                        }
+                    }
+                    ggml_cuda_memcpy_1<sizeof(values)>(tile_KV + i*(J/2 + J_padding) + j, values);
+                }
+            }
+        }
+    };
+
+    static_assert(J % 8 == 0, "bad J");
+    static_assert((J/2) % cpy_ne == 0, "bad J");
+    ggml_cuda_unroll<7>{}(load);
+}
+
+template<int warp_size, int nwarps, int I, int J, int J_padding, bool oob_check>
+static __device__ __forceinline__ void flash_attn_tile_load_tile(
+        const block_q8_0 * const __restrict__ KV, float * const __restrict__ tile_KV, const int stride_KV, const int i_sup) {
+    constexpr int cpy_nb = ggml_cuda_get_max_cpy_bytes();
+    constexpr int cpy_ne = cpy_nb / 4;
+
+    auto load = [&] __device__ (const int n) {
+        const int stride_j = warp_size >> n;
+        if (stride_j == 0) return;
+
+        const int j0_start = stride_j == warp_size ? 0 : (J/cpy_ne) - (J/cpy_ne) % (2*stride_j);
+        const int j0_stop  =                             (J/cpy_ne) - (J/cpy_ne) % (1*stride_j);
+        const int stride_i = warp_size / stride_j;
+        if (j0_start == j0_stop) return;
+
+#pragma unroll
+        for (int i0 = 0; i0 < I; i0 += nwarps*stride_i) {
+            const int i = i0 + threadIdx.y*stride_i + (stride_j == warp_size ? 0 : threadIdx.x / stride_j);
+            if (i0 + nwarps*stride_i <= I || i < I) {
+#pragma unroll
+                for (int j0 = j0_start; j0 < j0_stop; j0 += stride_j) {
+                    const int j = j0*(cpy_ne/2) + (stride_j == warp_size ? threadIdx.x : threadIdx.x % stride_j)*(cpy_ne/2);
+                    __align__(16) float2 values[cpy_ne/2];
+#pragma unroll
+                    for (int l = 0; l < cpy_ne/2; ++l) {
+                        const int dim = 2*(j + l);
+                        const block_q8_0 * block = !oob_check || i < i_sup ? KV + i*stride_KV + dim/32 : nullptr;
+                        if (block != nullptr) {
+                            const float d = __half2float(block->d);
+                            values[l] = make_float2(d*block->qs[dim % 32], d*block->qs[dim % 32 + 1]);
+                        } else {
+                            values[l] = make_float2(0.0f, 0.0f);
+                        }
+                    }
+                    ggml_cuda_memcpy_1<sizeof(values)>(tile_KV + i*(J + J_padding) + 2*j, values);
+                }
+            }
+        }
+    };
+
+    static_assert(J % 8 == 0, "bad J");
+    static_assert(J % cpy_ne == 0, "bad J");
+    ggml_cuda_unroll<5>{}(load);
+}
+
 // Function that performs a single iteration in for the KQ matrix multiplication:
 template <int warp_size, int nwarps, int ncols1, int ncols2, int DKQ, int nbatch_fa, int nbatch_K,
     bool use_logit_softcap, bool oob_check, typename T_vec_dot>
