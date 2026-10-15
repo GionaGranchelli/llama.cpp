@@ -57,3 +57,11 @@ void ggml_cuda_flash_attn_ext_tile(ggml_backend_cuda_context & ctx, ggml_tensor 
             GGML_ABORT("Unsupported head size");
     }
 }
+
+void ggml_cuda_flash_attn_ext_tile_q8(ggml_backend_cuda_context & ctx, ggml_tensor * dst) {
+    const ggml_tensor * K = dst->src[1];
+    const ggml_tensor * V = dst->src[2];
+    GGML_ASSERT(K->ne[0] == 256 && V->ne[0] == 256);
+    GGML_ASSERT(K->type == GGML_TYPE_Q8_0 && V->type == GGML_TYPE_Q8_0);
+    ggml_cuda_flash_attn_ext_tile_q8_case<256, 256>(ctx, dst);
+}
