@@ -81,7 +81,11 @@ llama.cpp already has gfx906 `sdot4` support in `ggml/src/ggml-cuda/common.cuh`,
 
 Added an opt-in route through the existing `FLASH_ATTN_EXT` vector kernel for GFX906 when the head size is 256, both cache tensors are Q8_0, and the query batch exceeds two. Enable it with `GGML_CUDA_FA_Q8_VEC_PREFILL=1`; the default dispatch remains unchanged. The route is identified in the runtime log, and its workspace sizing follows the existing vector kernel path. Added a Q8/Q8 64-query backend case so the opt-in dispatch can be checked against the backend reference.
 
-This is a screening probe for the existing Q8 dot-product dataflow, not a port of MIInfer's query quantization kernel. The Q8 vector path still quantizes the query, so numerical correctness and full-model utility remain unverified. Build, operator correctness, route selection, and matched full-model timing are pending. Do not treat the implementation as an accepted optimization until those checks pass.
+This is a screening probe for the existing Q8 dot-product dataflow, not a port of MIInfer's query quantization kernel. The Q8 vector path still quantizes the query, so full-model correctness and utility remain unverified. Do not treat the implementation as an accepted optimization until full-model checks pass.
+
+The HIP build completed on Machinist. With the flag enabled, the focused `FLASH_ATTN_EXT` backend-op run exercised the new Q8/Q8 256-wide, 64-query case and passed all 31 `nb=64` attention cases against the CPU reference. The runtime emitted the route-selection log. This is operator-level evidence only; full-model correctness is still unverified.
+
+An unchanged-dispatch 8K control on GPU2 / BDF `0000:88:00.0` completed in `36.0219 s` (`227.417` prompt tok/s), one sample without warmup. Sampled junction temperature peaked at 77 C and then fell to 44 C. The command and model settings match the earlier 8K diagnostic. The opt-in full-model timing is still pending, so this single control does not establish a speedup.
 
 ## Next action
 
