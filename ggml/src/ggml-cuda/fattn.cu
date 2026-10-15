@@ -517,7 +517,6 @@ enum best_fattn_kernel {
     BEST_FATTN_KERNEL_NONE    =   0,
     BEST_FATTN_KERNEL_TILE    = 200,
     BEST_FATTN_KERNEL_VEC     = 100,
-    BEST_FATTN_KERNEL_VEC_Q8_PREFILL = 101,
     BEST_FATTN_KERNEL_MMA_F16 = 400,
 };
 
@@ -681,13 +680,6 @@ static best_fattn_kernel ggml_cuda_get_best_fattn_kernel(const int device, const
     }
 
     // AMD MFMA needs a certain minimum batch size to outscale the tile kernel for large head sizes.
-    const char * q8_vec_prefill_env = getenv("GGML_CUDA_FA_Q8_VEC_PREFILL");
-    if (q8_vec_prefill_env != nullptr && q8_vec_prefill_env[0] != '\0' && strcmp(q8_vec_prefill_env, "0") != 0 &&
-            cc == GGML_CUDA_CC_VEGA20 && Q->ne[0] == 256 && Q->ne[1] > 2 &&
-            K->type == GGML_TYPE_Q8_0 && V->type == GGML_TYPE_Q8_0 && can_use_vector_kernel) {
-        return BEST_FATTN_KERNEL_VEC_Q8_PREFILL;
-    }
-
     if (amd_mfma_available(cc) && Q->ne[0] != 40 && Q->ne[0] != 72) {
         if ((Q->ne[0] <= 64 && Q->ne[1] * gqa_ratio_eff > 8)) {
             return BEST_FATTN_KERNEL_MMA_F16;
@@ -752,8 +744,6 @@ size_t ggml_cuda_flash_attn_ext_get_alloc_size(int device, const ggml_tensor * d
             need_f16_K = K->type == GGML_TYPE_F32 || f16_fallback;
             need_f16_V = V->type == GGML_TYPE_F32 || f16_fallback;
         } break;
-        case BEST_FATTN_KERNEL_VEC_Q8_PREFILL:
-            break;
         case BEST_FATTN_KERNEL_NONE:
             break;
     }
@@ -775,14 +765,6 @@ void ggml_cuda_flash_attn_ext(ggml_backend_cuda_context & ctx, ggml_tensor * dst
         case BEST_FATTN_KERNEL_VEC:
             ggml_cuda_flash_attn_ext_vec(ctx, dst);
             break;
-        case BEST_FATTN_KERNEL_VEC_Q8_PREFILL: {
-            static bool logged = false;
-            if (!logged) {
-                GGML_LOG_INFO("%s: GGML_CUDA_FA_Q8_VEC_PREFILL selected Q8 vector attention for GFX906 prefill\n", __func__);
-                logged = true;
-            }
-            ggml_cuda_flash_attn_ext_vec(ctx, dst);
-        } break;
         case BEST_FATTN_KERNEL_MMA_F16:
             ggml_cuda_flash_attn_ext_mma_f16(ctx, dst);
             break;

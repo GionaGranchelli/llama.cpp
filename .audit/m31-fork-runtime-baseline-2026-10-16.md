@@ -77,16 +77,23 @@ The MIInfer Q8 dot4 candidate is not safe to copy as-is. Its earlier 64K full-mo
 
 llama.cpp already has gfx906 `sdot4` support in `ggml/src/ggml-cuda/common.cuh`, a Q8 vector attention path in `fattn-common.cuh`, and GQA tile grouping in `fattn-tile.cuh`. The transfer opportunity is the exact-arithmetic dataflow that avoids converting quantized K/V to F16 for multi-query tiles, if measurement shows that conversion is a bottleneck. Do not port the failed Q8-query approximation unchanged. First establish the full-context control with verified thermal settings, then compare an opt-in exact-Q variant through `FLASH_ATTN_EXT`.
 
-## Opt-in Q8 vector-prefill dispatch probe
+## Q8 vector-prefill dispatch screen — rejected
 
-Added an opt-in route through the existing `FLASH_ATTN_EXT` vector kernel for GFX906 when the head size is 256, both cache tensors are Q8_0, and the query batch exceeds two. Enable it with `GGML_CUDA_FA_Q8_VEC_PREFILL=1`; the default dispatch remains unchanged. The route is identified in the runtime log, and its workspace sizing follows the existing vector kernel path. Added a Q8/Q8 64-query backend case so the opt-in dispatch can be checked against the backend reference.
+As a minimal `FLASH_ATTN_EXT` integration probe, temporarily selected the existing Q8 vector kernel on GFX906 for 256-wide Q8_0 K/V attention when query batch exceeded two. The code used the existing workspace path and left normal dispatch opt-in. Added a Q8/Q8 64-query test case.
 
-This is a screening probe for the existing Q8 dot-product dataflow, not a port of MIInfer's query quantization kernel. The Q8 vector path still quantizes the query, so full-model correctness and utility remain unverified. Do not treat the implementation as an accepted optimization until full-model checks pass.
+With `GGML_CUDA_FA_Q8_VEC_PREFILL=1`, the HIP backend test exercised that exact shape and passed all 31 selected 64-query Flash Attention cases against CPU. The route log was observed in a verbose full-model 1K run. This proved dispatch and operator-level numerical tolerance, but not whole-model output equivalence.
 
-The HIP build completed on Machinist. With the flag enabled, the focused `FLASH_ATTN_EXT` backend-op run exercised the new Q8/Q8 256-wide, 64-query case and passed all 31 `nb=64` attention cases against the CPU reference. The runtime emitted the route-selection log. This is operator-level evidence only; full-model correctness is still unverified.
+Matched single-sample, no-warmup 8K screens on GPU2 / BDF `0000:88:00.0`:
 
-An unchanged-dispatch 8K control on GPU2 / BDF `0000:88:00.0` completed in `36.0219 s` (`227.417` prompt tok/s), one sample without warmup. Sampled junction temperature peaked at 77 C and then fell to 44 C. The command and model settings match the earlier 8K diagnostic. The opt-in full-model timing is still pending, so this single control does not establish a speedup.
+| Route | Wall time | Prompt throughput | Sampled junction |
+|---|---:|---:|---:|
+| Default | 36.0219 s | 227.417 tok/s | 77 C |
+| Existing Q8 vector route | 43.6538 s | 187.658 tok/s | 81 C |
+
+Both runs used the same build (`9e057e6`), Qwen3.8-27B Q4_K_M checksum, Q8 K/V cache, `-b 2048 -ub 512`, Flash Attention, GPU2 and one sample without warmup. The vector route took about 21% longer. This is a screening result, not a repeated benchmark; thermal state and the 300 W cap remain uncontrolled. It is enough to reject the existing per-head vector route for this prefill shape. Its likely structural disadvantage is that it does not share KV work across the model's GQA ratio of six.
+
+The temporary selector and its test-only case were removed after the negative screen. The default llama.cpp route remains intact. Keep the evidence and pursue a Q8 K/V tile path that shares fragments across GQA heads while using full-precision Q in QK, avoiding the failed MIInfer Q8-query approximation.
 
 ## Next action
 
-Keep the 8K baseline as the known-good control. Build and screen the opt-in Q8 vector route on a short workload under the thermal guard; compare its logits and timing with the existing dispatch. Resolve sustainable cooling or power limits before another 64K run, then capture at least one completed 64K baseline.
+Keep the pinned 8K result as the runnable control. Next inspect the existing tile kernel's Q8-to-F16 conversion and GQA grouping, then implement the smallest direct-Q8 K/V tile experiment that reuses grouped heads and retains full-precision Q. Run backend numerical checks before another full-model timing. Resolve sustainable power/cooling before attempting 64K again.
