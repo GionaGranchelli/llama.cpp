@@ -110,7 +110,7 @@ A same-build default 8K control on GPU2 / BDF `0000:88:00.0` completed in `36.01
 
 ## GQA-6 direct-Q8 tile screens — rejected for 8K prefill
 
-Expanded the opt-in tile to process all six query heads for one KV head at a time, first with an 8-token query tile and then a 16-token query tile. The 16-token version uses 384 threads and a 96-column tile. Both variants keep full-precision QK math and decode Q8 K/V in the tile. The HIP build succeeded, and the target `FLASH_ATTN_EXT` suite passed 31/31 cases on ROCm0, including Q8/Q8 GQA-6 at 64 query tokens.
+Expanded the opt-in tile to process all six query heads for one KV head at a time, with 4-, 8-, and 16-token query tiles. The 4-token version uses 384 threads and a 24-column tile, matching the custom GQA-6 shape more closely. All variants keep full-precision QK math and decode Q8 K/V in the tile. The HIP builds succeeded, and the target `FLASH_ATTN_EXT` suite passed 31/31 cases on ROCm0, including Q8/Q8 GQA-6 at 64 query tokens.
 
 Same-build, same-device, one-sample 8K screens on GPU2 / BDF `0000:88:00.0`, with model checksum `7e78da5d7e3ae28d178121f58646953305f3e5bd3cb46f4a75584e8b6c6fe169`, `-b 2048 -ub 512`, Q8 K/V, Flash Attention, 99 GPU layers, no warmup, and start junction 32 C:
 
@@ -119,7 +119,8 @@ Same-build, same-device, one-sample 8K screens on GPU2 / BDF `0000:88:00.0`, wit
 | Default control | 2 | 16 | 36.0105 s | 227.489 tok/s | 76 C |
 | Direct Q8 | 6 | 8 | 39.3711 s | 208.072 tok/s | 74 C |
 | Direct Q8 | 6 | 16 | 40.0589 s | 204.499 tok/s | 76 C |
+| Direct Q8 | 6 | 4 | 39.1352 s | 209.326 tok/s | 75 C |
 
-The six-head routes were slower by 9.3% and 11.2%, respectively. The earlier two-head direct-Q8 screen was 37.2822 s, 3.5% slower than the same-build control. These are single-sample screens, not repeat-qualified results; their consistent direction is enough to reject this direct decode dataflow for the 8K prefill shape. Do not enable it by default. This does not determine performance at 64K, which remains unmeasured because sustained prefill exceeded the thermal guard in prior attempts.
+The six-head routes were slower by 8.7% (4-token), 9.3% (8-token), and 11.2% (16-token). The 4-token variant was the best of these but still lost to the default. The earlier two-head direct-Q8 screen was 37.2822 s, 3.5% slower than the same-build control. These are single-sample screens, not repeat-qualified results; their consistent direction is enough to stop tuning this direct-decode dataflow for the 8K prefill shape. Do not enable it by default. This does not determine performance at 64K, which remains unmeasured because sustained prefill exceeded the thermal guard in prior attempts.
 
 The likely cost is repeated Q8 decode inside each attention tile. The normal path expands the cache once and reuses the F16 representation across query tiles. Direct decode avoids that temporary allocation but repeats conversion work. A useful next kernel must avoid both the failed approximate-Q path and per-tile Q8-to-F16 expansion, while preserving exact-enough QK math.
