@@ -145,3 +145,16 @@ The 2048 microbatch completed without allocation failure, with a sampled 19.25 G
 `llama-bench` normally sets `n_ctx` to prompt + generation length. Therefore the earlier 8K screens used an 8K context even though the GGUF supports longer contexts. Re-ran an 8K prompt with `-fitc 65536 -fitt 0`; the JSON output records `fit_min_ctx=65536`, `n_gpu_layers=99`, `-ub 1024`, and build commit `f397c15`. It completed in `33.9574 s` (`241.244` prompt tok/s), with about `20.16 GB` VRAM used during the run and sampled junction reaching `80 C` from about `32 C`.
 
 This verifies that the pinned fork can allocate a 64K context on GPU2 while keeping all model layers there. It does not verify processing 64K prompt tokens. The full-length prefill remains pending because both power caps are currently at their stock maxima and the 8K run reached the thermal warning line.
+
+## Direct-Q8 MFMA candidate — build, correctness, and 8K screen
+
+Added an exact target-shape `FLASH_ATTN_EXT` test for 256-wide Q/K/V, GQA ratio 6, Q8_0 K/V, 4K KV length, and 64 query rows. On Machinist commit `d722577`, the ROCm 7.2.1 Release HIP build completed for `llama-bench` and `test-backend-ops`. With `GGML_CUDA_FA_Q8_DIRECT_MFMA=1`, the focused test selected the matching Q8 case alongside the F16 control; both passed (`2/2`). The test compares the HIP result against the CPU backend. The default path remains unchanged when the flag is unset.
+
+Ran one 8K full-model screen per MI50 with the candidate enabled. Both used Qwen3.8-27B Q4_K_M (SHA-256 `7e78da5d7e3ae28d178121f58646953305f3e5bd3cb46f4a75584e8b6c6fe169`), 99 GPU layers, Q8 K/V, Flash Attention, `-b 2048 -ub 512`, one no-warmup sample, and 8,192 prompt tokens. The binary reports build commit `4b3a42c` (the direct-MFMA code commit; the later `d722577` commit only added the test case).
+
+| MI50 / BDF | Default control | Direct-Q8 MFMA | Candidate delta | Candidate junction (sampled) | Live cap |
+|---|---:|---:|---:|---:|---:|
+| GPU0 / `0000:04:00.0` | 35.4545 s, 231.056 tok/s | 35.4439 s, 231.126 tok/s | -0.03% | 84 C | 225 W |
+| GPU2 / `0000:88:00.0` | Historical: 36.0105 s, 227.489 tok/s; same-build rerun: 35.9510 s, 227.865 tok/s | 35.9674 s, 227.762 tok/s | +0.05% vs same-build rerun | 75 C | 300 W |
+
+The GPU2 same-build control ran immediately after the candidate on the same card, with the same 8K workload, settings, cap and near-identical starting junction (32 C candidate, 33 C control). It took 0.05% less time than the candidate. The GPU0 control is historical and from an earlier build. These are one-sample screens, not qualified measurements; they show no material 8K prefill gain. Correctness is promising at the attention-op level; full-model token/logit equivalence has not yet been checked. Do not enable the route by default. A 64K test is still important because this route avoids the full F16 K/V expansion, but it is not safe to start under the current caps and thermal behavior.
