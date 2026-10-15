@@ -107,3 +107,19 @@ The existing `FLASH_ATTN_EXT` tile path converts Q8 K/V to full-size F16 buffers
 The HIP build completed. With the flag enabled, `test-backend-ops` selected the direct route for the 256-wide GQA-6 Q8/Q8 64-query case and passed all 31 selected 64-query Flash Attention cases against the CPU backend. Full-model behavior and speed are pending.
 
 A same-build default 8K control on GPU2 / BDF `0000:88:00.0` completed in `36.0105 s` (`227.489` prompt tok/s), one sample without warmup. It started at 32 C junction and reached a sampled 76 C. The model checksum and all benchmark settings match the earlier control. The direct-Q8 candidate timing is pending.
+
+## GQA-6 direct-Q8 tile screens — rejected for 8K prefill
+
+Expanded the opt-in tile to process all six query heads for one KV head at a time, first with an 8-token query tile and then a 16-token query tile. The 16-token version uses 384 threads and a 96-column tile. Both variants keep full-precision QK math and decode Q8 K/V in the tile. The HIP build succeeded, and the target `FLASH_ATTN_EXT` suite passed 31/31 cases on ROCm0, including Q8/Q8 GQA-6 at 64 query tokens.
+
+Same-build, same-device, one-sample 8K screens on GPU2 / BDF `0000:88:00.0`, with model checksum `7e78da5d7e3ae28d178121f58646953305f3e5bd3cb46f4a75584e8b6c6fe169`, `-b 2048 -ub 512`, Q8 K/V, Flash Attention, 99 GPU layers, no warmup, and start junction 32 C:
+
+| Route | Query heads per KV tile | Query tokens per tile | Wall time | Prompt throughput | Sampled junction |
+|---|---:|---:|---:|---:|---:|
+| Default control | 2 | 16 | 36.0105 s | 227.489 tok/s | 76 C |
+| Direct Q8 | 6 | 8 | 39.3711 s | 208.072 tok/s | 74 C |
+| Direct Q8 | 6 | 16 | 40.0589 s | 204.499 tok/s | 76 C |
+
+The six-head routes were slower by 9.3% and 11.2%, respectively. The earlier two-head direct-Q8 screen was 37.2822 s, 3.5% slower than the same-build control. These are single-sample screens, not repeat-qualified results; their consistent direction is enough to reject this direct decode dataflow for the 8K prefill shape. Do not enable it by default. This does not determine performance at 64K, which remains unmeasured because sustained prefill exceeded the thermal guard in prior attempts.
+
+The likely cost is repeated Q8 decode inside each attention tile. The normal path expands the cache once and reuses the F16 representation across query tiles. Direct decode avoids that temporary allocation but repeats conversion work. A useful next kernel must avoid both the failed approximate-Q path and per-tile Q8-to-F16 expansion, while preserving exact-enough QK math.

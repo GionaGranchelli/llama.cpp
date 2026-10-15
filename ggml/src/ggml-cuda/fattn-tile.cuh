@@ -72,6 +72,9 @@ static constexpr __host__ __device__ uint32_t ggml_cuda_fattn_tile_get_config_nv
     GGML_CUDA_FATTN_TILE_CONFIG_CASE(256, 256,  8, 256, 2,  64,  64)
     GGML_CUDA_FATTN_TILE_CONFIG_CASE(256, 256, 16, 256, 2,  64,  64)
     GGML_CUDA_FATTN_TILE_CONFIG_CASE(256, 256, 32, 256, 2,  64,  64)
+    GGML_CUDA_FATTN_TILE_CONFIG_CASE(256, 256,  6, 192, 2,  64,  64)
+    GGML_CUDA_FATTN_TILE_CONFIG_CASE(256, 256, 48, 384, 2,  64,  64)
+    GGML_CUDA_FATTN_TILE_CONFIG_CASE(256, 256, 96, 384, 2,  32,  64)
 
     GGML_CUDA_FATTN_TILE_CONFIG_CASE(320, 256, 16, 256, 2,  64,  64)
 
@@ -141,6 +144,9 @@ static constexpr __host__ __device__ uint32_t ggml_cuda_fattn_tile_get_config_nv
     GGML_CUDA_FATTN_TILE_CONFIG_CASE(256, 256,  8, 256, 2,  32, 256)
     GGML_CUDA_FATTN_TILE_CONFIG_CASE(256, 256, 16, 256, 2,  32, 128)
     GGML_CUDA_FATTN_TILE_CONFIG_CASE(256, 256, 32, 256, 2,  32,  64)
+    GGML_CUDA_FATTN_TILE_CONFIG_CASE(256, 256,  6, 192, 2,  32,  64)
+    GGML_CUDA_FATTN_TILE_CONFIG_CASE(256, 256, 48, 384, 2,  32, 128)
+    GGML_CUDA_FATTN_TILE_CONFIG_CASE(256, 256, 96, 384, 2,  32, 128)
 
     GGML_CUDA_FATTN_TILE_CONFIG_CASE(320, 256, 16, 256, 2,  32,  64)
 
@@ -217,6 +223,9 @@ static constexpr __host__ __device__ uint32_t ggml_cuda_fattn_tile_get_config_am
     GGML_CUDA_FATTN_TILE_CONFIG_CASE(256, 256,  8, 256, 2,  64, 128)
     GGML_CUDA_FATTN_TILE_CONFIG_CASE(256, 256, 16, 256, 2,  32, 128)
     GGML_CUDA_FATTN_TILE_CONFIG_CASE(256, 256, 32, 256, 2,  32, 128)
+    GGML_CUDA_FATTN_TILE_CONFIG_CASE(256, 256,  6, 192, 2,  32, 128)
+    GGML_CUDA_FATTN_TILE_CONFIG_CASE(256, 256, 48, 384, 2,  32, 128)
+    GGML_CUDA_FATTN_TILE_CONFIG_CASE(256, 256, 96, 384, 2,  32, 128)
 
     GGML_CUDA_FATTN_TILE_CONFIG_CASE(320, 256, 32, 512, 1, 128,  64)
 
@@ -295,6 +304,9 @@ static constexpr __host__ __device__ uint32_t ggml_cuda_fattn_tile_get_config_am
     GGML_CUDA_FATTN_TILE_CONFIG_CASE(256, 256,  8, 128, 6,  32, 256)
     GGML_CUDA_FATTN_TILE_CONFIG_CASE(256, 256, 16, 256, 5,  32, 256)
     GGML_CUDA_FATTN_TILE_CONFIG_CASE(256, 256, 32, 256, 3,  64, 128)
+    GGML_CUDA_FATTN_TILE_CONFIG_CASE(256, 256,  6, 192, 2,  32, 128)
+    GGML_CUDA_FATTN_TILE_CONFIG_CASE(256, 256, 48, 384, 2,  32, 128)
+    GGML_CUDA_FATTN_TILE_CONFIG_CASE(256, 256, 96, 384, 2,  32, 128)
 
     GGML_CUDA_FATTN_TILE_CONFIG_CASE(320, 256, 32, 256, 2, 128,  64)
 
@@ -1247,6 +1259,32 @@ static void launch_fattn_tile_switch_ncols1(ggml_backend_cuda_context & ctx, ggm
 
     constexpr size_t nbytes_shared = 0;
 
+    if constexpr (direct_q8 && ncols2 == 6) {
+        if (Q->ne[1] > 16) {
+            constexpr int ncols1 = 16;
+            const int nwarps = ggml_cuda_fattn_tile_get_nthreads(DKQ, DV, ncols1*ncols2, cc) / warp_size;
+            const int nbatch_fa = ggml_cuda_fattn_tile_get_nbatch_fa(DKQ, DV, ncols1*ncols2, cc);
+            fattn_kernel_t fattn_kernel = flash_attn_tile<DKQ, DV, ncols1, ncols2, use_logit_softcap, direct_q8>;
+            launch_fattn<DV, ncols1, ncols2>
+                (ctx, dst, fattn_kernel, nwarps, nbytes_shared, nbatch_fa, false, false, false, false, warp_size);
+        } else if (Q->ne[1] > 8) {
+            constexpr int ncols1 = 8;
+            const int nwarps = ggml_cuda_fattn_tile_get_nthreads(DKQ, DV, ncols1*ncols2, cc) / warp_size;
+            const int nbatch_fa = ggml_cuda_fattn_tile_get_nbatch_fa(DKQ, DV, ncols1*ncols2, cc);
+            fattn_kernel_t fattn_kernel = flash_attn_tile<DKQ, DV, ncols1, ncols2, use_logit_softcap, direct_q8>;
+            launch_fattn<DV, ncols1, ncols2>
+                (ctx, dst, fattn_kernel, nwarps, nbytes_shared, nbatch_fa, false, false, false, false, warp_size);
+        } else {
+            constexpr int ncols1 = 1;
+            const int nwarps = ggml_cuda_fattn_tile_get_nthreads(DKQ, DV, ncols2, cc) / warp_size;
+            const int nbatch_fa = ggml_cuda_fattn_tile_get_nbatch_fa(DKQ, DV, ncols2, cc);
+            fattn_kernel_t fattn_kernel = flash_attn_tile<DKQ, DV, ncols1, ncols2, use_logit_softcap, direct_q8>;
+            launch_fattn<DV, ncols1, ncols2>
+                (ctx, dst, fattn_kernel, nwarps, nbytes_shared, nbatch_fa, false, false, false, false, warp_size);
+        }
+        return;
+    } else {
+
 #ifdef GGML_USE_HIP
     if constexpr (DKQ <= 128) {
         if (Q->ne[1] > 32/ncols2) {
@@ -1323,6 +1361,7 @@ static void launch_fattn_tile_switch_ncols1(ggml_backend_cuda_context & ctx, ggm
     }
 
     GGML_ABORT("fatal error");
+    }
 }
 
 template <int DKQ, int DV, bool use_logit_softcap, bool direct_q8 = false>
@@ -1343,6 +1382,13 @@ static void launch_fattn_tile_switch_ncols2(ggml_backend_cuda_context & ctx, ggm
     const bool nvidia = GGML_CUDA_CC_IS_NVIDIA(ggml_cuda_info().devices[ggml_cuda_get_device()].cc);
     const int gqa_limit = nvidia && gqa_ratio <= 4 && DV <= 256 ? 16 : INT_MAX;
     const bool use_gqa_opt = mask && max_bias == 0.0f && Q->ne[1] <= gqa_limit && K->ne[1] % FATTN_KQ_STRIDE == 0;
+
+    if constexpr (direct_q8) {
+        if (use_gqa_opt && gqa_ratio == 6) {
+            launch_fattn_tile_switch_ncols1<DKQ, DV, 6, use_logit_softcap, true>(ctx, dst);
+            return;
+        }
+    }
 
     if constexpr (DKQ == 320) {
         // This branch is only used for Mistral Small 4 which has a GQA ratio of 32.
