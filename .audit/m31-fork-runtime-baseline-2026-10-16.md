@@ -124,3 +124,17 @@ Same-build, same-device, one-sample 8K screens on GPU2 / BDF `0000:88:00.0`, wit
 The six-head routes were slower by 8.7% (4-token), 9.3% (8-token), and 11.2% (16-token). The 4-token variant was the best of these but still lost to the default. The earlier two-head direct-Q8 screen was 37.2822 s, 3.5% slower than the same-build control. These are single-sample screens, not repeat-qualified results; their consistent direction is enough to stop tuning this direct-decode dataflow for the 8K prefill shape. Do not enable it by default. This does not determine performance at 64K, which remains unmeasured because sustained prefill exceeded the thermal guard in prior attempts.
 
 The likely cost is repeated Q8 decode inside each attention tile. The normal path expands the cache once and reuses the F16 representation across query tiles. Direct decode avoids that temporary allocation but repeats conversion work. A useful next kernel must avoid both the failed approximate-Q path and per-tile Q8-to-F16 expansion, while preserving exact-enough QK math.
+
+## Microbatch size screen — `-ub 1024` improves 8K prefill
+
+Tested the larger-microbatch hypothesis with the default attention route (`GGML_CUDA_FA_Q8_DIRECT_TILE` unset), pinned ROCm 7.2.1 image, model checksum, 8K prompt, `-b 2048`, Q8 K/V, Flash Attention, and no warmup. The direct-Q8 experiment code was present but opt-in and inactive. The Machinist checkout was synchronized to `f397c1537`; the isolated repeat binary reports that exact commit.
+
+| MI50 | Microbatch | Wall time | Prompt throughput | Starting junction | Highest sampled junction |
+|---|---:|---:|---:|---:|---:|
+| GPU0 / `0000:04:00.0` | 512 | 35.4545 s | 231.056 tok/s | 28 C | 83 C* |
+| GPU0 / `0000:04:00.0` | 1024 | 33.3853 s | 245.377 tok/s | 29 C | 81 C |
+| GPU2 / `0000:88:00.0` | 1024 | 33.9218 s | 241.497 tok/s | 35 C | 80 C* |
+
+`*` These two runs overlapped on both MI50s. GPU0 at `-ub 512` reproduced its earlier 35.46 s control; GPU2 at `-ub 1024` was about 5.8% faster than the earlier same-card 36.0105 s `-ub 512` control. An isolated GPU0 `-ub 1024` run then took 33.3853 s, 5.8% less time than its `-ub 512` screen, starting within 1 C of the control. The direction is consistent across both cards, but there is only one sample per setting and card; treat this as a promising screen, not a repeat-qualified result.
+
+The overlapping run briefly crossed the 80 C warning line (83 C on GPU0 and 80 C on GPU2) and stayed below the 85 C hard stop. The isolated GPU0 `-ub 1024` run peaked at 81 C. Do not run longer contexts or larger batches until the cards cool and telemetry is watched. Next screen `-ub 2048` at 8K only; stop at 85 C or on allocation failure. If it does not improve on 1024, use 1024 as the working prefill setting and focus on verifying longer context under the thermal guard.
