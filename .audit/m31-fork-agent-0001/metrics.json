@@ -63,8 +63,28 @@
   },
   "observed_cache_reuse": {
     "reported_cached_tokens_on_continuation": 76808,
-    "controlled_65536_suffix_test": false,
+    "controlled_65536_suffix_test": true,
     "save_restart_restore_test": false
+  },
+  "gate2_live_cache_test": {
+    "source_bundle_sha256": "e98b20883c5ee75a7324bee2d7fea5524e2fc43645ab2daac7028f399f09ea98",
+    "token_ids_sha256": "b6e2cb2fc7b42a1d5230728da08747a69888dd5285bb57fe5e4a7f8322803320",
+    "prefix_tokens": 65536,
+    "cold_prefix_prompt_seconds": 408.505978,
+    "cold_prefix_tokens_per_second": 160.42849683830084,
+    "cold_prefill_target_seconds": 420,
+    "cold_prefill_target_pass": true,
+    "prefix_truncated": false,
+    "slot_save_tokens": 65536,
+    "slot_save_bytes": 2754219996,
+    "slot_save_seconds": 1.536107,
+    "live_suffix_tokens": 512,
+    "live_cached_prefix_tokens": 65536,
+    "live_new_prompt_tokens": 512,
+    "live_reuse_ratio": 1.0,
+    "live_suffix_prompt_seconds": 4.462916,
+    "live_suffix_client_seconds": 4.679,
+    "restart_restore_reuse_test": false
   },
   "aggregate_server_metrics": {
     "prompt_tokens_processed": 469386,

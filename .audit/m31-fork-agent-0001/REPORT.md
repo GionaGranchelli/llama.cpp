@@ -18,7 +18,7 @@ Prior OMP traffic provides evidence that long prompts and live prefix reuse have
 | --- | --- | --- |
 | 0 — Environment | PARTIAL | Correct BDF/UUID mapping, model SHA, executable SHA, immutable image ID, driver version, 131,072 context, one slot, no-context-shift, slot API, `label=disable`, 180 W caps, and active guard observed. The current server source is `58a7247`, predating campaign HEAD `1bd9f5e6`; its exact OCI repo digest and runtime-library versions remain uncaptured. |
 | 1 — Matched 64K default/J40 | INCOMPLETE | Historical J40 result is 380.861 s. No valid route-confirmed matched default/J40 pair is established in the campaign evidence. |
-| 2 — KV reuse and save/restore | INCOMPLETE | OMP continuation reported 76,808 cached tokens; aggregate server metrics show 7.54M cached tokens. Controlled known-prefix suffix accounting and save/restart/restore with post-restore reuse have not been run. |
+| 2 — KV reuse and save/restore | PARTIAL | Controlled 65,536-token prefix completed in 408.506 s. A 512-token continuation reused all 65,536 cached tokens and evaluated 512 in 4.463 s. A 65,536-token slot was saved (2,754,219,996 bytes). Restart/restore and post-restore reuse remain pending. |
 | 3 — Eight-turn OMP coding task | INCOMPLETE | OMP made real tool calls in the parser task, but the session did not complete eight fixed turns, a verified repository change by OMP, and the predefined acceptance sequence. The latest retry timed out. |
 | 4 — Product bottleneck | NOT RUN | No complete workflow to profile. |
 
@@ -26,6 +26,7 @@ Prior OMP traffic provides evidence that long prompts and live prefix reuse have
 
 - OMP long prompt: 76,812 tokens; cold prefill 498.849 s; 4,096 generated tokens at about 12.85 tok/s; maximum observed junction temperature 71°C. This 76.8K run exceeds the 420-second target, although it is not the canonical 65,536-token control. The model response ended at the output limit and did not count as an accepted task turn.
 - OMP cached continuation: 76,808 cached tokens reported by the client/server record.
+- Controlled live-cache test: 65,536-token prefix, 408.506 s (160.43 tok/s), 11.5 s inside the 420-second target; saved 65,536 tokens in 2,754,219,996 bytes; the next 512-token request reused 65,536 and evaluated 512 in 4.463 s (4.679 s client wall time). The exact token IDs are preserved in `gate2-prompt-tokens.json`.
 - Current server aggregate metrics: 469,386 prompt tokens processed, 7.54291M cached prompt tokens, 48,279 generated tokens, and 11.33 tokens/s reported average decode gauge. Aggregate metrics are diagnostic only; they do not replace per-request measurements.
 - Current remote GPU sample: target MI50 at 30°C edge, 180 W cap, 65% VRAM, 0% GPU utilization. The last full telemetry sample in this campaign reported 39°C junction; it was not re-read in the current short preflight. The other MI50 was idle in the sample.
 

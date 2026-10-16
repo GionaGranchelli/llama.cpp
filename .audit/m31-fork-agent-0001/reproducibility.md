@@ -13,6 +13,10 @@
 - Current container image name is `localhost/miinfer-dev:rocm-7.2.1`; immutable image ID is `sha256:50ff28a28cc13a3ca7333cd0c70e322d16245967c5fdf0d30a1bf57bda80a512`. OCI repo digest was truncated by the inspection output and remains uncaptured.
 - Host driver: `7.2.10-200.fc44.x86_64`.
 - The live server is supervised by `.audit/m31-fork-agent-0001/run-guarded.sh`; its process was observed active at 2026-10-16 16:56:52 UTC.
+- Controlled prefix source: `.audit/m31-fork-agent-0001/task-context-bundle.md`, SHA-256 `e98b20883c5ee75a7324bee2d7fea5524e2fc43645ab2daac7028f399f09ea98`.
+- Exact request IDs: `.audit/m31-fork-agent-0001/gate2-prompt-tokens.json`, SHA-256 `6a79942bbbeea6b328ad7458e4f31d074b371e0ba767af9cf687b3ca449806c5`; the first 65,536 IDs were the prefix and the next 512 were the live suffix.
+- Controlled live-cache request log: `.audit/m31-fork-agent-0001/gate2-live-cache.json`; cache counters and timings are recorded there.
+- Saved slot: `/tmp/m31-fork-agent-0001-slots/m31-gate2-prefix-65536-20261016.bin` on Machinist; server reported 65,536 tokens and 2,754,219,996 bytes written. Keep this file intact for the restart/restore test; it is intentionally not copied into Git.
 
 ## Hardware and runtime observed
 
@@ -53,3 +57,11 @@ ROCR_VISIBLE_DEVICES=GPU-2152414173497dd3
 ```
 
 The complete reproducible command is not recorded yet because the running executable SHA, image digest and final source build identity still need to be reconciled. Do not use these fragments alone as a qualified rerun recipe.
+
+The controlled live test was driven once with:
+
+```text
+rtk python3 .audit/m31-fork-agent-0001/gate2_live_cache.py
+```
+
+It uses the local endpoint at `http://127.0.0.1:18081`, sends an exact 65,536-token prefix with `n_predict=0`, saves the slot, then sends the exact following 512 tokens. It refuses to overwrite prior evidence. To complete Gate 2, restart the guarded server with the same executable/configuration, restore the saved slot, and test a different 512-token suffix.
