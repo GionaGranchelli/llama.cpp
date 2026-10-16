@@ -1,0 +1,14 @@
+# Machinist preflight — 2026-10-16 03:31 Europe/Amsterdam
+
+- SSH target: `machinist@100.114.213.94`; hostname `machinist`.
+- Load average: 0.89, 1.34, 1.78; 56 CPUs.
+- ROCm mapping: GPU0 `0000:04:00.0` (gfx906 MI50), GPU1 `0000:85:00.0` (gfx1200 RX 9060 XT), GPU2 `0000:88:00.0` (gfx906 MI50).
+- Temperatures: GPU0 junction 29 C; GPU2 junction 32 C.
+- KFD: `No KFD PIDs currently running`.
+- `podman ps`: no active containers.
+- Process search for LM Studio, llama-server, llama-bench, and llama.cpp: no matches.
+- Listening ports: 631, 53, 9000, 13305, 22, 5355, and overlay SSH; no inference listener identified.
+- Live power caps: GPU0 225000000 uW; GPU2 300000000 uW.
+- `sudo -n true` fails because an interactive password is required. User has been asked to reapply 180 W caps.
+
+No process was killed because live evidence showed no inference workload to stop.

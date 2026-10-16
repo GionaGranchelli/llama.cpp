@@ -64,3 +64,20 @@ step is to apply and verify the 180 W cap on both cards, then create a clean
 build whose embedded commit identifies the pinned source before running the
 guarded full-context baseline. The GPU2 8K result can serve as an initial
 sanity control while that is prepared.
+
+## Exact-source reproduction
+
+The provenance gap above is resolved by a clean checkout and rebuild from
+`56729ae70a66bf075096b0f5b4ae3d0581041b7b`. The result JSON reports
+`build_commit="56729ae70"` and `build_number=11703`; the source worktree was
+clean. On GPU2 (`0000:88:00.0`), the same 8K command completed in `33.910 s`
+(`241.580 prompt tokens/s`), starting at 31 C and peaking at 78 C. It used the
+same model SHA, image ID, cache types, batch sizes, and default attention
+dispatch. This reproduces the earlier diagnostic timing with source identity
+now verified; it remains a one-sample 8K control and does not establish a
+64K timing or repeated-run range.
+
+The exact build binary SHA-256 is
+`53a069db463e3bb728e30411b6190384da6fe0b3669b2eadfaa37aff9e90de11`. Raw
+metadata, JSON output, and junction telemetry are saved under
+`.audit/evidence/m31-step1-baseline-2026-10-16/` with the `gpu2-exact-` prefix.
