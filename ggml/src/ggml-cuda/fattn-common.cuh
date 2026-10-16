@@ -50,6 +50,9 @@ struct ggml_cuda_flash_attn_ext_f16_extra_data {
     uintptr_t end;
 };
 
+// The opt-in gfx906 Q8 dot4 path adapts MIInfer's Qwen3 attention work to
+// llama.cpp's Q8_0 tensors and FLASH_ATTN_EXT contract. See the accompanying
+// MIInfer MIT notice in licenses/LICENSE-miinfer-q8-dot4.
 static constexpr size_t GGML_CUDA_FA_Q8_DOT4_ROW_BYTES = 256 + 8*sizeof(float);
 
 static inline bool ggml_cuda_fa_q8_dot4_prepack_enabled(const ggml_tensor * dst) {

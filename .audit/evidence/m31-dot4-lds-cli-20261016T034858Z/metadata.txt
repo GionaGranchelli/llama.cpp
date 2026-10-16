@@ -1,0 +1,37 @@
+source_commit=09bca255faf238de2398344acf7322b02380099b
+source_status= M ggml/src/ggml-cuda/fattn-tile.cuh 
+fattn_tile_sha256=34c98f14b27a5e1cef91943ed0095d6c85866bbc13d825b4f93c459620bfb8fb
+llama_cli_sha256=887410eb367684491c737ec82abfb1f6624c58e6ce147db0a2eb5567078e4782
+libggml_hip_sha256=81c60031825bcff1baaded0e7c78ee8c3b926b921d88446502248ac4a9ecda3c
+image_id=50ff28a28cc13a3ca7333cd0c70e322d16245967c5fdf0d30a1bf57bda80a512
+model_sha256=7e78da5d7e3ae28d178121f58646953305f3e5bd3cb46f4a75584e8b6c6fe169
+prompt_sha256=38a5502d983051a90c57a2bcddfe960040e9641c838d0fd221a0108fc99e9d2a
+gpu_bdf=0000:04:00.0
+
+
+============================ ROCm System Management Interface ============================
+===================================== KFD Processes ======================================
+No KFD PIDs currently running
+==========================================================================================
+================================== End of ROCm SMI Log ===================================
+
+
+============================ ROCm System Management Interface ============================
+====================================== Temperature =======================================
+GPU[0]		: Temperature (Sensor edge) (C): 27.0
+GPU[0]		: Temperature (Sensor junction) (C): 28.0
+GPU[0]		: Temperature (Sensor memory) (C): 26.0
+GPU[1]		: Temperature (Sensor edge) (C): 29.0
+GPU[1]		: Temperature (Sensor junction) (C): 31.0
+GPU[1]		: Temperature (Sensor memory) (C): 26.0
+GPU[2]		: Temperature (Sensor edge) (C): 29.0
+GPU[2]		: Temperature (Sensor junction) (C): 32.0
+GPU[2]		: Temperature (Sensor memory) (C): 30.0
+==========================================================================================
+================================== End of ROCm SMI Log ===================================
+
+default start_junction_c=28.0
+default stop_reason= status=0
+
+prepack start_junction_c=40.0
+prepack stop_reason=GPU0 telemetry unavailable or junction reached 84.0 C status=137

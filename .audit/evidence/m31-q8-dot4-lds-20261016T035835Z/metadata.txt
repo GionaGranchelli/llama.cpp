@@ -1,0 +1,50 @@
+source_commit=09bca255faf238de2398344acf7322b02380099b
+source_status= M ggml/src/ggml-cuda/fattn-tile.cuh 
+fattn_tile_sha256=b67463b1660df7cfedfbfb9339afc173fa89b6a8792c6c481a625734914ac31e
+test_binary_sha256=ebeeca504fe1bf3285a9d1269d35173a64d6fa79fcb4733ea2316f84396b450c
+image_id=50ff28a28cc13a3ca7333cd0c70e322d16245967c5fdf0d30a1bf57bda80a512
+filter=hsk=256.*kv=1024.*nb=64
+gpu0_bdf=0000:04:00.0
+gpu2_bdf=0000:88:00.0
+gpu0_cap_uw=225000000
+gpu2_cap_uw=300000000
+
+
+============================ ROCm System Management Interface ============================
+===================================== KFD Processes ======================================
+No KFD PIDs currently running
+==========================================================================================
+================================== End of ROCm SMI Log ===================================
+
+
+============================ ROCm System Management Interface ============================
+====================================== Temperature =======================================
+GPU[0]		: Temperature (Sensor edge) (C): 27.0
+GPU[0]		: Temperature (Sensor junction) (C): 28.0
+GPU[0]		: Temperature (Sensor memory) (C): 27.0
+GPU[1]		: Temperature (Sensor edge) (C): 29.0
+GPU[1]		: Temperature (Sensor junction) (C): 31.0
+GPU[1]		: Temperature (Sensor memory) (C): 26.0
+GPU[2]		: Temperature (Sensor edge) (C): 27.0
+GPU[2]		: Temperature (Sensor junction) (C): 31.0
+GPU[2]		: Temperature (Sensor memory) (C): 28.0
+==========================================================================================
+================================== End of ROCm SMI Log ===================================
+stop_reason=
+gpu0_status=0
+gpu2_status=0
+
+
+============================ ROCm System Management Interface ============================
+====================================== Temperature =======================================
+GPU[0]		: Temperature (Sensor edge) (C): 27.0
+GPU[0]		: Temperature (Sensor junction) (C): 28.0
+GPU[0]		: Temperature (Sensor memory) (C): 27.0
+GPU[1]		: Temperature (Sensor edge) (C): 29.0
+GPU[1]		: Temperature (Sensor junction) (C): 31.0
+GPU[1]		: Temperature (Sensor memory) (C): 26.0
+GPU[2]		: Temperature (Sensor edge) (C): 28.0
+GPU[2]		: Temperature (Sensor junction) (C): 31.0
+GPU[2]		: Temperature (Sensor memory) (C): 28.0
+==========================================================================================
+================================== End of ROCm SMI Log ===================================

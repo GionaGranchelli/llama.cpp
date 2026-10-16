@@ -608,32 +608,36 @@ static __device__ __forceinline__ void flash_attn_tile_iter_KQ(
         static_assert(DKQ == 256, "Q8 dot4 is implemented for D=256 only");
         static_assert(std::is_same_v<T_kv, block_q8_0>, "Q8 dot4 requires Q8_0 keys");
         static_assert((nbatch_K/2) % cpy_ne == 0, "bad Q8 dot4 dimension tile");
-        constexpr int q8_row_bytes = DKQ + (DKQ/32)*sizeof(float);
+        constexpr int q8_row_bytes = GGML_CUDA_FA_Q8_DOT4_ROW_BYTES;
+        constexpr int q8_words_per_row = DKQ/4;
+        constexpr int q8_blocks_per_row = DKQ/32;
+        const uint32_t * const q8_K = reinterpret_cast<const uint32_t *>(KV_tmp);
+        const half * const q8_K_scales = reinterpret_cast<const half *>(
+            q8_K + q8_words_per_row*nbatch_fa);
+        static_assert(nbatch_K % 32 == 0, "Q8 dot4 dimension tile must preserve Q8_0 blocks");
 #pragma unroll
-        for (int k_KQ_1 = k_KQ_0/2; k_KQ_1 < (k_KQ_0 + nbatch_K)/2; k_KQ_1 += cpy_ne) {
+        for (int block = k_KQ_0/32; block < (k_KQ_0 + nbatch_K)/32; ++block) {
 #pragma unroll
             for (int i_KQ_0 = 0; i_KQ_0 < nbatch_fa; i_KQ_0 += np*warp_size) {
                 const int i_KQ = i_KQ_0 + (threadIdx.y % np)*warp_size + threadIdx.x;
                 if (i_KQ < k_VKQ_sup) {
-                    const block_q8_0 * const K_row = (const block_q8_0 *) K + int64_t(k_VKQ_0 + i_KQ)*stride_K;
 #pragma unroll
                     for (int jc0 = 0; jc0 < cpw; ++jc0) {
                         const int jc = jc0 + (threadIdx.y / np)*cpw;
                         const char * const q_row = Q_storage + int64_t(jc)*q8_row_bytes;
                         const float * const q_scales = (const float *) (q_row + DKQ);
-                        float sum = 0.0f;
+                        int block_dot = 0;
 #pragma unroll
-                        for (int k = 0; k < cpy_ne; k += 2) {
-                            const int dim = 2*(k_KQ_1 + k);
-                            const int block = dim/32;
+                        for (int word_in_block = 0; word_in_block < 8; ++word_in_block) {
+                            const int word = block*8 + word_in_block;
                             int q4;
-                            int k4;
-                            ggml_cuda_memcpy_1<sizeof(int)>(&q4, q_row + dim);
-                            ggml_cuda_memcpy_1<sizeof(int), 2>(&k4, K_row[block].qs + dim%32);
-                            const float k_scale = __half2float(K_row[block].d);
-                            sum += float(ggml_cuda_dp4a(q4, k4, 0)) * q_scales[block] * k_scale;
+                            ggml_cuda_memcpy_1<sizeof(int)>(&q4, q_row + word*4);
+                            const int k4 = q8_K[word*nbatch_fa + i_KQ];
+                            block_dot = ggml_cuda_dp4a(q4, k4, block_dot);
                         }
-                        KQ_acc[i_KQ_0/(np*warp_size)*cpw + jc0] += sum;
+                        const float k_scale = __half2float(q8_K_scales[block*nbatch_fa + i_KQ]);
+                        const float block_sum = float(block_dot) * q_scales[block] * k_scale;
+                        KQ_acc[i_KQ_0/(np*warp_size)*cpw + jc0] += block_sum;
                     }
                 }
             }
@@ -745,6 +749,53 @@ static __device__ __forceinline__ void flash_attn_tile_iter(
     }
 
     float KQ_acc[nbatch_fa/(np*warp_size) * cpw] = {0.0f}; // Accumulators for KQ matrix multiplication.
+
+    if constexpr (q8_dot4) {
+        static_assert(DKQ == 256 && nbatch_fa == 32, "Q8 dot4 staging expects the GFX906 GQA6 tile");
+        constexpr int q8_words_per_row = DKQ/4;
+        constexpr int q8_blocks_per_row = DKQ/32;
+        const int thread_id = threadIdx.y*blockDim.x + threadIdx.x;
+        const int thread_count = blockDim.x*blockDim.y;
+        uint32_t * const q8_K = reinterpret_cast<uint32_t *>(KV_tmp);
+        half * const q8_K_scales = reinterpret_cast<half *>(q8_K + q8_words_per_row*nbatch_fa);
+#ifdef FAST_FP16_AVAILABLE
+        static_assert((nbatch_fa*(nbatch_K/2 + cpy_ne) + DVp - DV)*sizeof(half2) >=
+            nbatch_fa*q8_words_per_row*sizeof(uint32_t) + nbatch_fa*q8_blocks_per_row*sizeof(half),
+            "Q8 dot4 K tile exceeds shared KV storage");
+#else
+        static_assert((nbatch_fa*(nbatch_K + cpy_ne) + DVp - DV)*sizeof(float) >=
+            nbatch_fa*q8_words_per_row*sizeof(uint32_t) + nbatch_fa*q8_blocks_per_row*sizeof(half),
+            "Q8 dot4 K tile exceeds shared KV storage");
+#endif
+
+        // Pack K cooperatively into LDS as [dimension dword][key row]. The
+        // global Q8_0 rows are contiguous by dimension; the transposed LDS
+        // layout lets every lane read the same dword across adjacent keys.
+        for (int idx = thread_id; idx < nbatch_fa*q8_words_per_row; idx += thread_count) {
+            const int key_row = idx/q8_words_per_row;
+            const int word = idx%q8_words_per_row;
+            const int block = word/8;
+            const int dim_in_block = (word%8)*4;
+            uint32_t packed = 0;
+            if (key_row < k_VKQ_sup) {
+                const block_q8_0 * const K_row = (const block_q8_0 *) K + int64_t(k_VKQ_0 + key_row)*stride_K;
+                ggml_cuda_memcpy_1<sizeof(uint32_t), 2>(
+                    &packed, K_row[block].qs + dim_in_block);
+            }
+            q8_K[word*nbatch_fa + key_row] = packed;
+        }
+        for (int idx = thread_id; idx < nbatch_fa*q8_blocks_per_row; idx += thread_count) {
+            const int key_row = idx/q8_blocks_per_row;
+            const int block = idx%q8_blocks_per_row;
+            half scale = __float2half(0.0f);
+            if (key_row < k_VKQ_sup) {
+                const block_q8_0 * const K_row = (const block_q8_0 *) K + int64_t(k_VKQ_0 + key_row)*stride_K;
+                scale = K_row[block].d;
+            }
+            q8_K_scales[block*nbatch_fa + key_row] = scale;
+        }
+        __syncthreads();
+    }
 
     // KQ = K @ Q matrix multiplication:
     constexpr int nbatch_K_last = DKQ % nbatch_K;
