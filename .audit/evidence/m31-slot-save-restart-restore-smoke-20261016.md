@@ -40,20 +40,19 @@ practical persistence format.
 | Restore | 548 tokens; 506,612,684 bytes; 314.693 ms |
 | Follow-up | 8 tokens generated; Python request wall time 595.21 ms |
 
-The follow-up response reported 558 tokens evaluated. The saved JSON's
-`timings.cache_n` and `timings.prompt_n` fields were not extracted during this
-run, so this smoke does **not** prove that the restored prefix avoided
-full-prefix replay. That counter is the next item to inspect. The response was
-generated, but no semantic agent-task result was checked.
+The follow-up response reported 558 tokens evaluated, split into
+`timings.cache_n = 548` restored tokens and `timings.prompt_n = 10` newly
+processed tokens. This confirms the restored KV prefix was reused rather than
+recomputed. The response was generated, but no semantic agent-task result was
+checked.
 
 ## Decision
 
 No MIInfer session allocator or COW snapshot code was ported. llama.cpp's
 existing slot API survives a server restart and restores the saved token
-position. The immediate open questions are whether the 507 MB file can be
-reduced and whether the follow-up actually reuses the restored KV state. The
-64K save/restore and latency check remains pending because the two MI50 caps
-are above the required 180 W limit.
+position. The immediate open question is whether the 507 MB file can be
+reduced. The 64K save/restore and latency check remains pending because the
+two MI50 caps are above the required 180 W limit.
 
 ## Machinist artifacts
 
