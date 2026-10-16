@@ -35,7 +35,28 @@ negative directional screen, not a kernel performance verdict.
 - Raw run directory:
   `/tmp/m31-gqa48-8k-screen-gpu2-20261016T083942Z`
 
-The raw JSON fields and temperature trace were extracted from the remote logs.
-The route-selection message was not present in the saved candidate log. Exact
-metrics are recorded above; full-model correctness and route attribution are
-still open.
+The raw JSON fields and temperature trace were extracted from the first
+remote logs. Its candidate log did not contain the route-selection message.
+Full-model correctness remains open.
+
+## Verbose route-confirmed repeat
+
+A second guarded pair used the verbose runner on the same MI50 and workload.
+The candidate log confirmed selection of `selected opt-in GFX906 Q8 dot4
+flash-attention tile`.
+
+| Route | Prompt time | Prompt rate | Start junction |
+|---|---:|---:|---:|
+| Default | 33.900880427 s | 241.645642 tok/s | 31 C |
+| GQA6 dot4 | 36.933431136 s | 221.804467 tok/s | 39 C |
+
+The confirmed dot4 run was 8.95% slower by wall time and 8.21% lower in prompt
+rate in this single pair. Both routes exited 0 without a thermal stop; peak
+junction was 79 C. The candidate started 8 C warmer, so this is not a
+temperature-matched or interleaved comparison. Its result closely matches the
+preceding requested-dot4 screen, but only this repeat has route confirmation.
+
+Provenance: source `ae88eee89759a99b311e358c3a8cc7a9b1694baa`; benchmark and
+HIP backend hashes match the preceding screen. Remote raw files are under
+`/tmp/m31-gqa48-8k-screen-gpu2-20261016T084425Z/`. The run had no generation
+tokens and did not compare logits.
