@@ -2,14 +2,22 @@
 set -Eeuo pipefail
 
 workspace="${M31_CANDIDATE_WORKSPACE:-/tmp/m31-fork-candidate}"
+build_dir="${M31_BUILD_DIR:-$workspace/build-mi50}"
 image="localhost/miinfer-dev:rocm-7.2.1"
-filter='hsk=256.*kv=1024.*nb=64'
+# Select the Q8_0 GQA6 correctness fixture (KV=1024, batch=64), not every
+# FLASH_ATTN_EXT case that happens to share head width and batch size.
+filter='hsk=256,hsv=256,nh=4,nr23=\[6,1\],kv=1024,nb=64.*type_K=q8_0,type_V=q8_0'
 timestamp="$(date -u +%Y%m%dT%H%M%SZ)"
 run_dir="${M31_EVIDENCE_ROOT:-/tmp}/m31-q8-dot4-lds-${timestamp}"
 mkdir -p "$run_dir"
 
-[[ -x "$workspace/build-mi50/bin/test-backend-ops" ]] || {
-    echo "missing test-backend-ops in $workspace" >&2
+case "$build_dir" in
+    "$workspace"/*) build_rel="${build_dir#"$workspace"/}" ;;
+    *) echo "M31_BUILD_DIR must be inside M31_CANDIDATE_WORKSPACE" >&2; exit 2 ;;
+esac
+test_binary="$build_dir/bin/test-backend-ops"
+[[ -x "$test_binary" ]] || {
+    echo "missing test-backend-ops at $test_binary" >&2
     exit 2
 }
 
@@ -58,7 +66,7 @@ fi
     printf 'source_commit=%s\n' "$(git -C "$workspace" rev-parse HEAD)"
     printf 'source_status=%s\n' "$(git -C "$workspace" status --short | tr '\n' ' ')"
     printf 'fattn_tile_sha256=%s\n' "$(sha256sum "$workspace/ggml/src/ggml-cuda/fattn-tile.cuh" | awk '{print $1}')"
-    printf 'test_binary_sha256=%s\n' "$(sha256sum "$workspace/build-mi50/bin/test-backend-ops" | awk '{print $1}')"
+    printf 'test_binary_sha256=%s\n' "$(sha256sum "$test_binary" | awk '{print $1}')"
     printf 'image_id=%s\n' "$(podman image inspect --format '{{.Id}}' "$image")"
     printf 'filter=%s\n' "$filter"
     printf 'gpu0_bdf=%s\ngpu2_bdf=%s\n' "$(bus_for_gpu 0)" "$(bus_for_gpu 2)"
@@ -76,7 +84,7 @@ for gpu in 0 2; do
         --security-opt seccomp=unconfined --security-opt label=disable \
         -e "ROCR_VISIBLE_DEVICES=$gpu" -e GGML_CUDA_FA_Q8_DOT4_PREPACK=1 \
         -v "$workspace:/workspace" -w /workspace "$image" \
-        ./build-mi50/bin/test-backend-ops -b ROCm0 -o FLASH_ATTN_EXT -p "$filter" \
+        "./$build_rel/bin/test-backend-ops" -b ROCm0 -o FLASH_ATTN_EXT -p "$filter" \
         > "$run_dir/gpu${gpu}.log" 2>&1 &
     pid_by_gpu[$gpu]=$!
 done
