@@ -8,7 +8,7 @@
 
 The parser fix for partial Qwen3.5 tagged tool calls is committed and pushed. The focused Qwen3.5 chat tests and the full chat test suite passed on the CPU build (`test-chat --template Qwen3.5-4B.jinja`, then the complete `test-chat` suite). The fix and tests are in `common/chat.cpp` and `tests/test-chat.cpp`. This is a useful compatibility fix, but it does not qualify the MI50 agent workflow.
 
-The running Machinist server is healthy and idle. It has one 131,072-token slot, uses the intended MI50 at `0000:88:00.0` through UUID `GPU-2152414173497dd3`, and has slot save/restore endpoints enabled. The other MI50 is idle. The model checksum matches the campaign's expected artifact. A current read-only inspection also confirmed Podman's `label=disable` setting.
+The running Machinist server is healthy and idle. It has one 131,072-token slot, uses the intended MI50 at `0000:88:00.0` through UUID `GPU-2152414173497dd3`, and has slot save/restore endpoints enabled. The other MI50 is idle. The model checksum matches the campaign's expected artifact. A current read-only inspection also confirmed Podman's `label=disable` setting, the active `run-guarded.sh` supervisor, the running executable SHA, immutable image ID, and ROCm driver `7.2.10-200.fc44.x86_64`.
 
 Prior OMP traffic provides evidence that long prompts and live prefix reuse have occurred: one request processed 76,812 prompt tokens in 498.849 seconds, and a continuation reported 76,808 cached tokens. These are useful observations, not the required controlled 65,536-token suffix test. A later OMP retry reached about 97K prompt tokens, but timed out before returning a result. The retry transcript contains repeated Turn 2/Turn 4 attempts, not eight completed workflow turns.
 
@@ -16,7 +16,7 @@ Prior OMP traffic provides evidence that long prompts and live prefix reuse have
 
 | Gate | Status | Evidence and remaining proof |
 | --- | --- | --- |
-| 0 — Environment | PARTIAL | Correct BDF/UUID mapping, model SHA, 131,072 context, one slot, no-context-shift, slot API, `label=disable`, 180 W caps, and current safe temperatures observed. Exact running executable SHA, container image digest, runtime version, and active guard process still need capture. |
+| 0 — Environment | PARTIAL | Correct BDF/UUID mapping, model SHA, executable SHA, immutable image ID, driver version, 131,072 context, one slot, no-context-shift, slot API, `label=disable`, 180 W caps, and active guard observed. The current server source is `58a7247`, predating campaign HEAD `1bd9f5e6`; its exact OCI repo digest and runtime-library versions remain uncaptured. |
 | 1 — Matched 64K default/J40 | INCOMPLETE | Historical J40 result is 380.861 s. No valid route-confirmed matched default/J40 pair is established in the campaign evidence. |
 | 2 — KV reuse and save/restore | INCOMPLETE | OMP continuation reported 76,808 cached tokens; aggregate server metrics show 7.54M cached tokens. Controlled known-prefix suffix accounting and save/restart/restore with post-restore reuse have not been run. |
 | 3 — Eight-turn OMP coding task | INCOMPLETE | OMP made real tool calls in the parser task, but the session did not complete eight fixed turns, a verified repository change by OMP, and the predefined acceptance sequence. The latest retry timed out. |

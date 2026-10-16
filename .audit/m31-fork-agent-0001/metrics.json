@@ -35,8 +35,11 @@
     "slot_save_path_enabled": true,
     "podman_label_disable": true,
     "build_info": "b11816-58a724757044fda4bbce1cd633b73274c4d32d56",
-    "binary_sha256": null,
-    "container_image_digest": null
+    "binary_sha256": "ffde57a456b4e2c7cb144a2decd3282e84c3a8f9ba22acdcb9324beb8da5bb09",
+    "container_image_id": "sha256:50ff28a28cc13a3ca7333cd0c70e322d16245967c5fdf0d30a1bf57bda80a512",
+    "container_repo_digest": null,
+    "rocm_driver": "7.2.10-200.fc44.x86_64",
+    "guard_process_observed": true
   },
   "gates": {
     "gate0_environment": "PARTIAL",

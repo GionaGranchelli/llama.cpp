@@ -6,10 +6,13 @@
 - Campaign branch: `product/m31-fork-agent-0001`
 - Current source: `8f923819cbea0b673d7b16754b4b54110bdf998e`
 - Current source working tree: clean at checkpoint
+- Current campaign HEAD after checkpoint evidence: `1bd9f5e6aa77f91a0225236da39f58bf1fdff8f7`
 - Model: `/models/Qwen3.8-27B-Q4_K_M.gguf`
 - Model SHA-256: `7e78da5d7e3ae28d178121f58646953305f3e5bd3cb46f4a75584e8b6c6fe169`
-- Current server build reports source `58a724757044fda4bbce1cd633b73274c4d32d56`; this predates the parser-fix commit. The running binary SHA-256 and container image digest have not yet been captured.
-- Current container image name is `localhost/miinfer-dev:rocm-7.2.1`; exact image ID/digest remains to be captured.
+- Current server build reports source `58a724757044fda4bbce1cd633b73274c4d32d56`; this predates the parser-fix commit and checkpoint. Its `llama-server` SHA-256 is `ffde57a456b4e2c7cb144a2decd3282e84c3a8f9ba22acdcb9324beb8da5bb09`.
+- Current container image name is `localhost/miinfer-dev:rocm-7.2.1`; immutable image ID is `sha256:50ff28a28cc13a3ca7333cd0c70e322d16245967c5fdf0d30a1bf57bda80a512`. OCI repo digest was truncated by the inspection output and remains uncaptured.
+- Host driver: `7.2.10-200.fc44.x86_64`.
+- The live server is supervised by `.audit/m31-fork-agent-0001/run-guarded.sh`; its process was observed active at 2026-10-16 16:56:52 UTC.
 
 ## Hardware and runtime observed
 
@@ -23,7 +26,7 @@
 - Server slot persistence: `--slot-save-path /state`; `/state` is mounted to host storage
 - Driver version last reported earlier in this campaign: ROCm `7.2.10-200.fc44.x86_64`; recheck before the final qualification run.
 
-The current runtime identity is not yet a complete reproducibility record: capture the executable SHA-256, container image digest, runtime version and live guard ownership before starting the final long run.
+The current runtime identity is not yet a complete reproducibility record: rebuild the server from the campaign HEAD, capture its runtime libraries and OCI repo digest, and verify guard telemetry during the final long run.
 
 ## Existing run records
 
