@@ -82,7 +82,8 @@ for gpu in 0 2; do
     container_by_gpu[$gpu]="$container"
     podman run --rm --name "$container" --device=/dev/kfd --device=/dev/dri --group-add video \
         --security-opt seccomp=unconfined --security-opt label=disable \
-        -e "ROCR_VISIBLE_DEVICES=$gpu" -e GGML_CUDA_FA_Q8_DOT4_PREPACK=1 \
+        -e "ROCR_VISIBLE_DEVICES=$gpu" -e "LD_LIBRARY_PATH=/workspace/$build_rel/bin" \
+        -e GGML_CUDA_FA_Q8_DOT4_PREPACK=1 \
         -v "$workspace:/workspace" -w /workspace "$image" \
         "./$build_rel/bin/test-backend-ops" -b ROCm0 -o FLASH_ATTN_EXT -p "$filter" \
         > "$run_dir/gpu${gpu}.log" 2>&1 &
