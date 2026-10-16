@@ -13,16 +13,24 @@
   templates, but the build completed.
 - With `GGML_CUDA_FA_Q8_DOT4_PREPACK=1`, the focused Q8_0 GQA6
   `FLASH_ATTN_EXT` fixture (`hsk/hsv=256`, `kv=1024`, `nb=64`) printed the
-  expected dot4 dispatch and `1/1 tests passed` on ROCm0.
+  expected dot4 dispatch and `1/1 tests passed` on ROCm0. The saved metadata
+  confirms `operator_status=0`.
 
 ## Incomplete timing attempt
 
-The remote wrapper exited with status 1 after the operator output and did not
-return its post-test status, benchmark output, or evidence-directory path. No
-8K A/B timing is claimed from this attempt. The temporary clone and run files
-are on Machinist under `/tmp/m31-current-01a910937` and
-`/tmp/m31-current-8k-gqa2-*`; inspect the newest run directory before retrying.
+The first remote wrapper exited with status 1 after printing the operator log;
+inspection later confirmed that the operator itself exited 0. No benchmark
+output was created by that attempt.
 
-The live preflight before the build found no active KFD processes. At that
-point GPU0/GPU2 junction temperatures were 30/27 C and their power caps were
-225/300 W. This was only an 8K diagnostic attempt; no 64K run was started.
+A retry with an error trap failed at the wrapper's start-temperature capture
+before launching the default benchmark. The trap reported line 24, which is
+the `rocm-smi | awk` assignment in the temperature wait loop. The exact failing
+command within that pipeline is not yet known. No 8K A/B timing is claimed.
+The temporary clone and run files are on Machinist under
+`/tmp/m31-current-01a910937` and `/tmp/m31-current-8k-gqa2-*`; inspect the
+newest retry directory before another attempt.
+
+The live checks found no active inference processes or KFD users. At the first
+preflight GPU0/GPU2 were 30/27 C with caps 225/300 W; the latest check found
+26/27 C with the same caps. This was only an 8K diagnostic attempt; no 64K run
+was started.
