@@ -1,0 +1,14 @@
+utc=2026-10-16T06:02:54Z
+source=e6f92398f0dad240a11812bc269f634791e17e79
+source_status=
+model_sha256=7e78da5d7e3ae28d178121f58646953305f3e5bd3cb46f4a75584e8b6c6fe169
+binary_sha256=2bac20a883561d40a97a458a2342d44ba28fa92a17ab11f0cda6dbd50ab8d54b
+image_id=50ff28a28cc13a3ca7333cd0c70e322d16245967c5fdf0d30a1bf57bda80a512
+GPU0_BDF=0000:04:00.0
+GPU2_BDF=0000:88:00.0
+GPU0_start_junction=28.0
+GPU2_start_junction=30.0
+GPU0_cap=225000000
+GPU2_cap=300000000
+gpu0_status=137
+gpu2_status=137

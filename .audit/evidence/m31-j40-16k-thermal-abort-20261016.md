@@ -27,11 +27,13 @@ result, not a performance comparison.
 
 ## Evidence and next step
 
-The guard recorded GPU0 at 84 C at `2026-10-16T06:03:31Z` and GPU2 at 84 C at
-`2026-10-16T06:03:35Z`; the run started at `06:02:54Z`. No benchmark result was
-emitted for either path. Raw logs and per-second temperatures remain on
-Machinist under
-`/tmp/m31-j40-16k-crossover-20261016T060254Z/`.
+The temperature trace first recorded 80 C on both cards at `2026-10-16T06:03:25Z`.
+It recorded GPU0 at 84 C at `06:03:31Z` and GPU2 at 84 C at `06:03:35Z`; the
+run started at `06:02:54Z`. The per-card hard stop worked, but this ad-hoc
+16K runner did not emit the 80 C warning. No benchmark result was emitted for
+either path: both logs stop after benchmark startup. The raw logs and
+per-second temperature trace are now stored in
+`.audit/evidence/m31-j40-16k-crossover-20261016T060254Z/`.
 
 The current caps do not support even this guarded 16K comparison from a cool
 start. Do not retry 16K or attempt 64K at these caps. Re-run after both MI50
