@@ -1,0 +1,17 @@
+host=machinist
+started_utc=2026-10-16T01:28:54Z
+source_commit=56729ae70a66bf075096b0f5b4ae3d0581041b7b
+source_basis=campaign audit; isolated exported snapshot, J40 selector unset
+image_id=50ff28a28cc13a3ca7333cd0c70e322d16245967c5fdf0d30a1bf57bda80a512
+model=/home/machinist/models/Qwen3.8-27B-Q4_K_M.gguf
+model_sha256=7e78da5d7e3ae28d178121f58646953305f3e5bd3cb46f4a75584e8b6c6fe169
+gpu_index=2
+gpu_bdf=0000:88:00.0
+start_junction_c=31.0
+power_cap_uw=300000000
+uptime= 03:28:54 up 10:42,  2 users,  load average: 1.58, 1.55, 1.91
+cpus=56
+command=llama-bench -m /models/Qwen3.8-27B-Q4_K_M.gguf -p 8192 -n 0 -r 1 --no-warmup -b 2048 -ub 1024 -ctk q8_0 -ctv q8_0 -fa on -ngl 99 -dev ROCm0 -o jsonl --progress
+completed_utc=2026-10-16T01:29:32Z
+stop_reason=
+exit_status=0

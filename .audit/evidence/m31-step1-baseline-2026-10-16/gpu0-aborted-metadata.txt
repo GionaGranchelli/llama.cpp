@@ -1,0 +1,24 @@
+host=machinist
+started_utc=2026-10-16T01:28:05Z
+source_commit=56729ae70a66bf075096b0f5b4ae3d0581041b7b
+source_basis=campaign audit; isolated exported snapshot, J40 selector unset
+image_id=50ff28a28cc13a3ca7333cd0c70e322d16245967c5fdf0d30a1bf57bda80a512
+model=/home/machinist/models/Qwen3.8-27B-Q4_K_M.gguf
+model_sha256=7e78da5d7e3ae28d178121f58646953305f3e5bd3cb46f4a75584e8b6c6fe169
+gpu_index=0
+gpu_bdf=0000:04:00.0
+start_junction_c=28.0
+power_cap_uw=225000000
+uptime= 03:28:05 up 10:41,  2 users,  load average: 1.38, 1.50, 1.92
+cpus=56
+command=llama-bench -m /models/Qwen3.8-27B-Q4_K_M.gguf -p 8192 -n 0 -r 1 --no-warmup -b 2048 -ub 1024 -ctk q8_0 -ctv q8_0 -fa on -ngl 99 -dev ROCm0 -o jsonl --progress
+2026-10-16T01:28:33Z warning: junction 80.0 C
+2026-10-16T01:28:34Z warning: junction 81.0 C
+2026-10-16T01:28:36Z warning: junction 81.0 C
+2026-10-16T01:28:37Z warning: junction 83.0 C
+2026-10-16T01:28:38Z warning: junction 83.0 C
+2026-10-16T01:28:39Z warning: junction 83.0 C
+2026-10-16T01:28:40Z warning: junction 85.0 C
+completed_utc=2026-10-16T01:28:41Z
+stop_reason=junction reached 85.0 C; stopped before 85 C
+exit_status=137
