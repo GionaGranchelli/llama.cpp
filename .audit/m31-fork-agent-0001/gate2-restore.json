@@ -1,0 +1,132 @@
+{
+  "source_bundle_sha256": "e98b20883c5ee75a7324bee2d7fea5524e2fc43645ab2daac7028f399f09ea98",
+  "token_ids_sha256_checked": "b6e2cb2fc7b42a1d5230728da08747a69888dd5285bb57fe5e4a7f8322803320",
+  "prefix_tokens": 65536,
+  "restored_suffix_range": [
+    66048,
+    66560
+  ],
+  "server_build_info": "b11816-58a724757044fda4bbce1cd633b73274c4d32d56",
+  "server_context_tokens": 131072,
+  "server_slots": 1,
+  "slot_before_restore": [
+    {
+      "id": 0,
+      "n_ctx": 131072,
+      "speculative": false,
+      "is_processing": false
+    }
+  ],
+  "restore_started_utc": "2026-10-16T17:10:31.890341+00:00",
+  "stages": {
+    "restore": {
+      "id_slot": 0,
+      "filename": "m31-gate2-prefix-65536-20261016.bin",
+      "n_restored": 65536,
+      "n_read": 2754219996,
+      "timings": {
+        "restore_ms": 1241.948
+      },
+      "client_elapsed_seconds": 1.256
+    },
+    "restored_suffix": {
+      "index": 0,
+      "content": "_prev",
+      "tokens": [],
+      "id_slot": 0,
+      "stop": true,
+      "model": "/models/Qwen3.8-27B-Q4_K_M.gguf",
+      "tokens_predicted": 1,
+      "tokens_evaluated": 66048,
+      "generation_settings": {
+        "seed": 43,
+        "temperature": 0.0,
+        "dynatemp_range": 0.0,
+        "dynatemp_exponent": 1.0,
+        "top_k": 20,
+        "top_p": 0.949999988079071,
+        "min_p": 0.05000000074505806,
+        "top_n_sigma": -1.0,
+        "xtc_probability": 0.0,
+        "xtc_threshold": 0.10000000149011612,
+        "typical_p": 1.0,
+        "repeat_last_n": 64,
+        "repeat_penalty": 1.0,
+        "presence_penalty": 0.0,
+        "frequency_penalty": 0.0,
+        "dry_multiplier": 0.0,
+        "dry_base": 1.75,
+        "dry_allowed_length": 2,
+        "dry_penalty_last_n": 64,
+        "dry_sequence_breakers": [
+          "\n",
+          ":",
+          "\"",
+          "*"
+        ],
+        "mirostat": 0,
+        "mirostat_tau": 5.0,
+        "mirostat_eta": 0.10000000149011612,
+        "adaptive_target": -1.0,
+        "adaptive_decay": 0.8999999761581421,
+        "stop": [],
+        "max_tokens": 1,
+        "n_predict": 1,
+        "n_keep": 0,
+        "n_discard": 0,
+        "ignore_eos": false,
+        "stream": false,
+        "logit_bias": [],
+        "n_probs": 0,
+        "min_keep": 0,
+        "grammar": "",
+        "grammar_lazy": false,
+        "grammar_triggers": [],
+        "preserved_tokens": [],
+        "chat_format": "Content-only",
+        "reasoning_format": "deepseek",
+        "reasoning_in_content": false,
+        "generation_prompt": "",
+        "samplers": [
+          "penalties",
+          "dry",
+          "top_n_sigma",
+          "top_k",
+          "typ_p",
+          "top_p",
+          "min_p",
+          "xtc",
+          "temperature"
+        ],
+        "speculative.types": "none",
+        "timings_per_token": false,
+        "post_sampling_probs": false,
+        "backend_sampling": false,
+        "lora": []
+      },
+      "has_new_line": false,
+      "truncated": false,
+      "stop_type": "limit",
+      "stopping_word": "",
+      "tokens_cached": 66048,
+      "timings": {
+        "cache_n": 65536,
+        "prompt_n": 512,
+        "prompt_ms": 4764.14,
+        "prompt_per_token_ms": 9.3049609375,
+        "prompt_per_second": 107.46955379145028,
+        "predicted_n": 1,
+        "predicted_ms": 0.001,
+        "predicted_per_token_ms": 0.0,
+        "predicted_per_second": 0.0
+      },
+      "client_elapsed_seconds": 4.937
+    }
+  },
+  "restore_completed_utc": "2026-10-16T17:10:33.146516+00:00",
+  "first_token_request_utc": "2026-10-16T17:10:33.147364+00:00",
+  "first_token_response_utc": "2026-10-16T17:10:38.086988+00:00",
+  "restored_prefix_reuse_ratio": 1.0,
+  "suffix_prompt_tokens_evaluated": 512,
+  "first_token_returned": true
+}

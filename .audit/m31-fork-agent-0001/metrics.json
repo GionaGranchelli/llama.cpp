@@ -1,10 +1,11 @@
 {
   "campaign": "M31-FORK-AGENT-0001",
-  "checkpoint_utc": "2026-10-16T16:54:00Z",
+  "checkpoint_utc": "2026-10-16T17:18:29Z",
   "classification": "IN_PROGRESS",
   "repository": {
     "branch": "product/m31-fork-agent-0001",
-    "sha": "8f923819cbea0b673d7b16754b4b54110bdf998e",
+    "parser_fix_sha": "8f923819cbea0b673d7b16754b4b54110bdf998e",
+    "evidence_base_sha": "4fc1d6c45fd9ac8798fa1633af0761d199bac2bf",
     "worktree_clean": true,
     "remote_branch_verified": true
   },
@@ -23,6 +24,8 @@
     "temperature_edge_c_current_sample": 30,
     "temperature_junction_c_last_full_sample": 39,
     "temperature_scope": "edge is current; junction is last full campaign sample; neither is a long-run peak",
+    "gate2_guard_peak_junction_c": 67,
+    "gate2_guard_temperature_samples": 522,
     "target_vram_percent_observed": 65,
     "target_gpu_utilization_percent_observed": 0
   },
@@ -35,16 +38,24 @@
     "slot_save_path_enabled": true,
     "podman_label_disable": true,
     "build_info": "b11816-58a724757044fda4bbce1cd633b73274c4d32d56",
+    "source_dirty_paths": [
+      "ggml/src/ggml-cuda/mmq.cu",
+      "tools/llama-bench/llama-bench.cpp"
+    ],
+    "source_diff_sha256": "18d561645f0febfc5a458d71bdd9350131760e01fda02d4a93848949dc2bb593",
     "binary_sha256": "ffde57a456b4e2c7cb144a2decd3282e84c3a8f9ba22acdcb9324beb8da5bb09",
+    "runtime_libraries_sha256": "c32e116da4b6f96d38554335d2a6d1d3e818f0c18f6e18138b669a92f50fa1c4",
+    "hip_library_sha256": "819a43ecd31ad6650ff460e86fd3d32d4850bf3089d1b8971ac3f419ed98d9a2",
     "container_image_id": "sha256:50ff28a28cc13a3ca7333cd0c70e322d16245967c5fdf0d30a1bf57bda80a512",
     "container_repo_digest": null,
     "rocm_driver": "7.2.10-200.fc44.x86_64",
+    "rocm_hip_runtime": "7.2.53211-e1a6bc5663",
     "guard_process_observed": true
   },
   "gates": {
     "gate0_environment": "PARTIAL",
     "gate1_matched_64k_default_vs_j40": "INCOMPLETE",
-    "gate2_controlled_kv_reuse_and_restore": "INCOMPLETE",
+    "gate2_controlled_kv_reuse_and_restore": "PASS",
     "gate3_eight_turn_omp_task": "INCOMPLETE",
     "gate4_bottleneck_profile": "NOT_RUN"
   },
@@ -64,7 +75,7 @@
   "observed_cache_reuse": {
     "reported_cached_tokens_on_continuation": 76808,
     "controlled_65536_suffix_test": true,
-    "save_restart_restore_test": false
+    "save_restart_restore_test": true
   },
   "gate2_live_cache_test": {
     "source_bundle_sha256": "e98b20883c5ee75a7324bee2d7fea5524e2fc43645ab2daac7028f399f09ea98",
@@ -85,6 +96,32 @@
     "live_suffix_prompt_seconds": 4.462916,
     "live_suffix_client_seconds": 4.679,
     "restart_restore_reuse_test": false
+  },
+  "gate2_restore_test": {
+    "slot_snapshot_path_on_machinist": "/tmp/m31-fork-agent-0001-slots/m31-gate2-prefix-65536-20261016.bin",
+    "slot_snapshot_bytes": 2754219996,
+    "slot_snapshot_sha256": "43c5743c9eb3686250224f1fcd38e80f4b065e26bf58306edc1cb2077257ea3a",
+    "slot_tokens_restored": 65536,
+    "restore_seconds": 1.241948,
+    "post_restore_suffix_tokens": 512,
+    "post_restore_cached_prefix_tokens": 65536,
+    "post_restore_new_prompt_tokens": 512,
+    "post_restore_prompt_seconds": 4.76414,
+    "post_restore_first_output": "_prev",
+    "cold_reference_tokens": 66048,
+    "cold_reference_cache_n": 0,
+    "cold_reference_prompt_seconds": 407.342744,
+    "cold_reference_client_seconds": 407.561,
+    "cold_reference_output": "_prev",
+    "outputs_match": true,
+    "server_start_utc": "2026-10-16T17:09:50.443076804Z",
+    "first_output_after_restart_utc": "2026-10-16T17:10:38.086988Z",
+    "restart_to_first_output_seconds": 48.087,
+    "cold_vs_restart_first_output_speedup": 8.48,
+    "guard_temperature_samples": 522,
+    "guard_peak_junction_c": 67,
+    "thermal_stop_or_warning": false,
+    "restart_restore_reuse_test": true
   },
   "aggregate_server_metrics": {
     "prompt_tokens_processed": 469386,
