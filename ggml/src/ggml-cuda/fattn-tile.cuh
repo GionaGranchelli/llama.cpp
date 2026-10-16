@@ -627,17 +627,17 @@ static __device__ __forceinline__ void flash_attn_tile_iter_KQ(
                         const int jc = jc0 + (threadIdx.y / np)*cpw;
                         const char * const q_row = Q_storage + int64_t(jc)*q8_row_bytes;
                         const float * const q_scales = (const float *) (q_row + DKQ);
-                        int block_dot = 0;
+                        float block_sum = 0.0f;
+                        const float k_scale = __half2float(q8_K_scales[block*nbatch_fa + i_KQ]);
 #pragma unroll
                         for (int word_in_block = 0; word_in_block < 8; ++word_in_block) {
                             const int word = block*8 + word_in_block;
                             int q4;
                             ggml_cuda_memcpy_1<sizeof(int)>(&q4, q_row + word*4);
                             const int k4 = q8_K[word*nbatch_fa + i_KQ];
-                            block_dot = ggml_cuda_dp4a(q4, k4, block_dot);
+                            const int group_dot = ggml_cuda_dp4a(q4, k4, 0);
+                            block_sum += float(group_dot) * q_scales[block*8 + word_in_block] * k_scale;
                         }
-                        const float k_scale = __half2float(q8_K_scales[block*nbatch_fa + i_KQ]);
-                        const float block_sum = float(block_dot) * q_scales[block*8 + word_in_block] * k_scale;
                         KQ_acc[i_KQ_0/(np*warp_size)*cpw + jc0] += block_sum;
                     }
                 }
