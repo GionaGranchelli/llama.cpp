@@ -219,6 +219,8 @@ Then screened one 4K Q4_K J=40 model run on each MI50 simultaneously, followed b
 
 This repeats the J=40 direction on both physical cards, with four candidate samples and two controls total. It is still a short-context screen: each card has only one default sample, and candidate and control runs did not start at identical temperatures. No run approached the 80 C warning threshold. The result supports keeping J=40 for the next long-context check, but does not qualify 64K performance or justify changing the default.
 
+A second simultaneous 4K J=40 screen changed only `-ub` from 1024 to 2048. The 2048-token microbatch took 14.9926 s on GPU0 and 14.9865 s on GPU2, compared with the corresponding 1024-token candidate means of 15.0597 s and 15.0041 s. These one-sample-per-card deltas are only 0.4% and 0.1%, too small to establish a gain. Peak sampled junctions were 45 C and 44 C. Keep 1024 as the working setting: the larger microbatch showed no useful improvement in this screen and uses more activation memory.
+
 ## Decode smoke with the J=40 selector
 
 On GPU2, ran one `-p 512 -n 64` llama-bench sample with the default dispatch and one with `GGML_CUDA_MMQ_Q4K_J40=1`. Generation throughput was 25.4135 tok/s with default dispatch and 25.4588 tok/s with J=40 enabled. This is effectively unchanged at the precision of a single sample. The J=40 selector requires at least 40 activation columns, while token-by-token decode uses a one-token batch, so this is a smoke check that the opt-in flag does not alter decode dispatch, not evidence of a decode speedup or a correctness comparison.
