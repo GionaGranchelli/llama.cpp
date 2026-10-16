@@ -36,6 +36,9 @@ run_dir="/tmp/m31-gqa6-8k-logits-gpu${gpu}-$timestamp"
 mkdir -p "$run_dir"
 trap 'echo evidence="$run_dir"' EXIT
 
+if [[ -n "${M31_PROMPT_FILE:-}" ]]; then
+    cp "$M31_PROMPT_FILE" "$run_dir/prompt.txt"
+else
 {
     cat <<'EOF'
 Review this GPU attention implementation. Explain how its Q8 dot4 candidate
@@ -52,6 +55,7 @@ EOF
     printf '\nFile: fattn.cu, lines 660-800\n'
     sed -n '660,800p' "$workspace/ggml/src/ggml-cuda/fattn.cu"
 } > "$run_dir/prompt.txt"
+fi
 
 {
     printf 'source_commit=%s\nmodel_sha256=%s\nimage_id=%s\n' "$(git -C "$workspace" rev-parse HEAD)" "$model_sha" "$image_id"

@@ -1,0 +1,1 @@
+Answer briefly: what is the factorial of 6?
