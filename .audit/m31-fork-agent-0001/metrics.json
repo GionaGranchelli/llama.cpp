@@ -135,21 +135,23 @@
     "fixed_eight_turn_sequence_completed": false,
     "repository_change_by_omp_verified": false,
     "predefined_acceptance_tests_passed_by_omp": false,
-    "latest_attempt_timed_out": true,
-    "latest_attempt_interrupted_after_seconds": 846,
+    "latest_attempt_timed_out": false,
+    "latest_attempt_interrupted_after_seconds": 99,
     "latest_attempt_turns_completed": 0,
     "latest_attempt_source_context_tokens": 68961,
-    "latest_attempt_max_prompt_context_tokens": 98412,
+    "latest_attempt_max_prompt_context_tokens": null,
     "latest_attempt_uncached_prompt_tokens": null,
     "latest_attempt_cached_prompt_tokens": null,
     "latest_attempt_prompt_seconds": null,
-    "latest_attempt_generated_tokens": null,
+    "latest_attempt_generated_tokens": 0,
     "latest_attempt_decode_tokens_per_second_gauge": null,
     "latest_attempt_code_changes": 0,
-    "latest_attempt_tool_classes": ["read", "grep", "glob", "lsp"],
+    "latest_attempt_tool_classes": ["read", "grep"],
     "latest_attempt_thinking": "off",
-    "latest_attempt_transcript": "agent-session-run4-aborted.jsonl",
-    "latest_attempt_transcript_sha256": "cdf777cd9acfb6be71c5be2785bcee719841c744ebd4c8acf4966f50d88e9cc5"
+    "latest_attempt_error_status": 500,
+    "latest_attempt_error": "Qwen template rejected reasoning_effort=minimal; accepted values are low, medium, xhigh",
+    "latest_attempt_transcript": "agent-session-run5-error.jsonl",
+    "latest_attempt_transcript_sha256": "00d147aadc09b137187b7ae15cd0c8ba005076bb51e77af7a57266350d11951e"
   },
   "gate3_omp_attempts": [
     {
@@ -197,6 +199,26 @@
       "server_slot_processing_after_interrupt": false,
       "transcript": "agent-session-run4-aborted.jsonl",
       "transcript_sha256": "cdf777cd9acfb6be71c5be2785bcee719841c744ebd4c8acf4966f50d88e9cc5"
+    },
+    {
+      "run": 5,
+      "result": "SERVER_500_UNSUPPORTED_REASONING_EFFORT",
+      "elapsed_seconds": 99,
+      "thinking": "off",
+      "write_tools_available": false,
+      "task_worktree_clean": true,
+      "source_changes": 0,
+      "source_context_sha256": "e89c41cf2358eb89a283a0c392a9dcbc866298ec737d35b02ec77c2b5d9d8eb",
+      "source_context_tokens": 68961,
+      "max_prompt_context_tokens": null,
+      "omp_thinking_format": "qwen-chat-template",
+      "request_reasoning_effort": "minimal",
+      "server_accepted_reasoning_efforts": ["low", "medium", "xhigh"],
+      "http_status": 500,
+      "model_generated_tokens": 0,
+      "server_500_responses": 2,
+      "transcript": "agent-session-run5-error.jsonl",
+      "transcript_sha256": "00d147aadc09b137187b7ae15cd0c8ba005076bb51e77af7a57266350d11951e"
     }
   ],
   "gate3_guard_observation": {

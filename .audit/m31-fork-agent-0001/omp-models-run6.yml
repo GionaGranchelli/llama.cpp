@@ -1,0 +1,18 @@
+providers:
+  mi50:
+    baseUrl: http://127.0.0.1:18081/v1
+    api: openai-completions
+    apiKey: local
+    models:
+      - id: /models/Qwen3.8-27B-Q4_K_M.gguf
+        name: Qwen3.8-27B-Q4_K_M
+        contextWindow: 131072
+        maxTokens: 4096
+        reasoning: true
+        thinking:
+          mode: effort
+          efforts: [low, medium, xhigh]
+          defaultLevel: low
+        compat:
+          thinkingFormat: qwen-chat-template
+          qwenTemplateReasoningEffort: false
