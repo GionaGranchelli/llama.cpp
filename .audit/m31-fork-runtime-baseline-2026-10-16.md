@@ -238,3 +238,5 @@ Ran a two-card crossover at 4K with `-p 4096 -n 0 -r 1 --no-warmup -b 2048 -ub 1
 Junction was 34 C before both crossover runs and 49-50 C after; continuous peak telemetry was not saved. Live caps read 225 W / 300 W. Keep J=40 as the better supported opt-in and do not infer 64K behavior from this short-context screen.
 
 After removing J=48, rebuilt the final fork source at `56729ae70` in the same pinned container. `llama-bench` and `test-backend-ops` built successfully. The Q4_K `MUL_MAT` filter passed 120/120 on both MI50s with `GGML_CUDA_MMQ_Q4K_J40=1`; the default J=64 dispatch remains unchanged when the flag is unset.
+
+Added `.audit/run-guarded-m31-64k.sh` for the next 64K control/candidate runs. It checks both live caps, ROCm-index-to-BDF mapping, no active KFD processes, the model checksum, and a <=40 C start temperature. It samples junction once per second, warns at 80 C, stops its own container at 84 C, and saves benchmark output plus temperature data under `/tmp`. `bash -n` passed. A live run on Machinist exited before launching because the actual caps are 225 W / 300 W, confirming the cap gate is active. No 64K benchmark was launched.
