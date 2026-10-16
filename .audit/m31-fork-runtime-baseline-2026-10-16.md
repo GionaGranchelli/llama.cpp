@@ -223,6 +223,8 @@ A second simultaneous 4K J=40 screen changed only `-ub` from 1024 to 2048. The 2
 
 An 8K J=40 run on GPU2 with `-ub 2048` took 30.3458 s (269.955 tok/s), compared with the two `-ub 1024` J=40 samples at 30.399 s and 30.404 s. The difference is 0.18%, not a useful measured gain. The highest sampled edge temperature was 53 C. Junction was not sampled during the run; the later idle `rocm-smi --showtemp` reading was 43 C and is not a peak. Do not use edge temperature alone for the 80/85 C junction guard.
 
+One simultaneous 4K screen compared `-ub2048` on GPU0 (`0000:04:00.0`) with `-ub4096` on GPU2 (`0000:88:00.0`). Both runs used `-b4096`, J=40, the pinned Qwen model, Q8 K/V, Flash Attention, 99 GPU layers, and no warmup. GPU0 took 14.9939 s at 273.177 prompt tok/s. GPU2 took 14.9115 s at 274.688 prompt tok/s. This single pair used different cards and differs by 0.55%, so it does not show a `-ub4096` gain. Junction peaked at 76 C on GPU0 and 75 C on GPU2. The caps remained at 225 W and 300 W. Do not use this screen to infer 64K performance or thermal margin.
+
 ## Decode smoke with the J=40 selector
 
 On GPU2, ran one `-p 512 -n 64` llama-bench sample with the default dispatch and one with `GGML_CUDA_MMQ_Q4K_J40=1`. Generation throughput was 25.4135 tok/s with default dispatch and 25.4588 tok/s with J=40 enabled. This is effectively unchanged at the precision of a single sample. The J=40 selector requires at least 40 activation columns, while token-by-token decode uses a one-token batch, so this is a smoke check that the opt-in flag does not alter decode dispatch, not evidence of a decode speedup or a correctness comparison.
