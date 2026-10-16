@@ -682,9 +682,15 @@ static best_fattn_kernel ggml_cuda_get_best_fattn_kernel(const int device, const
 
     // AMD MFMA needs a certain minimum batch size to outscale the tile kernel for large head sizes.
     const char * q8_direct_tile_env = getenv("GGML_CUDA_FA_Q8_DIRECT_TILE");
-    if (q8_direct_tile_env != nullptr && q8_direct_tile_env[0] != '\0' && strcmp(q8_direct_tile_env, "0") != 0 &&
-            cc == GGML_CUDA_CC_VEGA20 && Q->ne[0] == 256 && Q->ne[1] > 2 && gqa_ratio == 6 &&
-            K->type == GGML_TYPE_Q8_0 && V->type == GGML_TYPE_Q8_0 && can_use_vector_kernel) {
+    const bool q8_direct_tile_enabled = q8_direct_tile_env != nullptr && q8_direct_tile_env[0] != '\0' && strcmp(q8_direct_tile_env, "0") != 0;
+    const bool q8_dot4_supported = ggml_cuda_fa_q8_dot4_prepack_enabled(dst);
+    const bool q8_direct_tile_supported = cc == GGML_CUDA_CC_VEGA20 && Q->ne[0] == 256 && Q->ne[1] > 2 && gqa_ratio == 6 &&
+            K->type == GGML_TYPE_Q8_0 && V->type == GGML_TYPE_Q8_0 && can_use_vector_kernel;
+    if (q8_dot4_supported && q8_direct_tile_supported) {
+        GGML_LOG_INFO("%s: selected opt-in GFX906 Q8 dot4 flash-attention tile\n", __func__);
+        return BEST_FATTN_KERNEL_TILE_Q8_DIRECT;
+    }
+    if (q8_direct_tile_enabled && q8_direct_tile_supported) {
         return BEST_FATTN_KERNEL_TILE_Q8_DIRECT;
     }
 
@@ -761,7 +767,12 @@ size_t ggml_cuda_flash_attn_ext_get_alloc_size(int device, const ggml_tensor * d
     const ggml_cuda_flash_attn_ext_f16_extra_data f16_extra =
         ggml_cuda_flash_attn_ext_get_f16_extra_data(dst, need_f16_K, need_f16_V);
 
-    return f16_extra.end - (uintptr_t) dst->data;
+    uintptr_t end = f16_extra.end;
+    if (kernel == BEST_FATTN_KERNEL_TILE_Q8_DIRECT && ggml_cuda_fa_q8_dot4_prepack_enabled(dst)) {
+        end = ggml_cuda_flash_attn_ext_q8_prepack_data(dst, need_f16_K, need_f16_V) +
+            ggml_nelements(Q)/Q->ne[0]*GGML_CUDA_FA_Q8_DOT4_ROW_BYTES;
+    }
+    return end - (uintptr_t) dst->data;
 }
 
 void ggml_cuda_flash_attn_ext(ggml_backend_cuda_context & ctx, ggml_tensor * dst) {
@@ -773,10 +784,14 @@ void ggml_cuda_flash_attn_ext(ggml_backend_cuda_context & ctx, ggml_tensor * dst
             ggml_cuda_flash_attn_ext_tile(ctx, dst);
             break;
         case BEST_FATTN_KERNEL_TILE_Q8_DIRECT: {
-            static bool logged = false;
-            if (!logged) {
+            static bool logged_q8_direct = false;
+            static bool logged_q8_dot4_prepack = false;
+            if (ggml_cuda_fa_q8_dot4_prepack_enabled(dst) && !logged_q8_dot4_prepack) {
+                GGML_LOG_INFO("%s: GGML_CUDA_FA_Q8_DOT4_PREPACK selected prepacked-Q dot4 GFX906 GQA tile attention\n", __func__);
+                logged_q8_dot4_prepack = true;
+            } else if (!ggml_cuda_fa_q8_dot4_prepack_enabled(dst) && !logged_q8_direct) {
                 GGML_LOG_INFO("%s: GGML_CUDA_FA_Q8_DIRECT_TILE selected direct-Q8 GFX906 GQA tile attention\n", __func__);
-                logged = true;
+                logged_q8_direct = true;
             }
             ggml_cuda_flash_attn_ext_tile_q8(ctx, dst);
         } break;

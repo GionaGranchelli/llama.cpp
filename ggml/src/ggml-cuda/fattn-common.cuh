@@ -50,6 +50,51 @@ struct ggml_cuda_flash_attn_ext_f16_extra_data {
     uintptr_t end;
 };
 
+static constexpr size_t GGML_CUDA_FA_Q8_DOT4_ROW_BYTES = 256 + 8*sizeof(float);
+
+static inline bool ggml_cuda_fa_q8_dot4_prepack_enabled(const ggml_tensor * dst) {
+    const ggml_tensor * Q = dst->src[0];
+    const ggml_tensor * K = dst->src[1];
+    const ggml_tensor * V = dst->src[2];
+    const ggml_tensor * mask = dst->src[3];
+    float max_bias = 0.0f;
+    float logit_softcap = 0.0f;
+    memcpy(&max_bias, (const float *) dst->op_params + 1, sizeof(float));
+    memcpy(&logit_softcap, (const float *) dst->op_params + 2, sizeof(float));
+    const char * env = getenv("GGML_CUDA_FA_Q8_DOT4_PREPACK");
+    return env != nullptr && env[0] != '\0' && strcmp(env, "0") != 0 &&
+        mask != nullptr && max_bias == 0.0f && logit_softcap == 0.0f && Q->ne[0] == 256 && Q->ne[1] > 2 &&
+        Q->ne[2]/K->ne[2] == 6 && K->ne[1] % FATTN_KQ_STRIDE == 0 &&
+        K->type == GGML_TYPE_Q8_0 && V->type == GGML_TYPE_Q8_0;
+}
+
+static __global__ void ggml_cuda_fa_q8_prepack_kernel(
+        const float * Q, char * packed, const int32_t ne01, const int32_t ne02, const int32_t ne03,
+        const size_t nb01, const size_t nb02, const size_t nb03, const float scale) {
+    const int row = blockIdx.x;
+    const int sequence = row / (ne01*ne02);
+    const int head = (row / ne01) % ne02;
+    const int token = row % ne01;
+    const char * src = (const char *) Q + sequence*nb03 + head*nb02 + token*nb01;
+    const int q8_row = ((sequence*ne01 + token)*ne02 + head);
+    char * dst = packed + size_t(q8_row)*GGML_CUDA_FA_Q8_DOT4_ROW_BYTES;
+    const int lane = threadIdx.x & 31;
+    const int block = threadIdx.x >> 5;
+    const int dim = block*32 + lane;
+    const float value = ((const float *) src)[dim]*scale;
+    float amax = fabsf(value);
+#pragma unroll
+    for (int offset = 16; offset > 0; offset >>= 1) {
+        amax = fmaxf(amax, __shfl_xor_sync(0xffffffff, amax, offset, 32));
+    }
+    const float qscale = amax/127.0f;
+    if (lane == 0) {
+        ((float *) (dst + 256))[block] = qscale;
+    }
+    const int q = qscale == 0.0f ? 0 : max(-127, min(127, __float2int_rn(value/qscale)));
+    dst[dim] = (char) q;
+}
+
 static inline ggml_cuda_flash_attn_ext_f16_extra_data ggml_cuda_flash_attn_ext_get_f16_extra_data(
         const ggml_tensor * dst, const bool need_f16_K, const bool need_f16_V) {
     GGML_ASSERT(dst->op == GGML_OP_FLASH_ATTN_EXT);
@@ -82,6 +127,11 @@ static inline ggml_cuda_flash_attn_ext_f16_extra_data ggml_cuda_flash_attn_ext_g
     }
 
     return data;
+}
+
+static inline uintptr_t ggml_cuda_flash_attn_ext_q8_prepack_data(const ggml_tensor * dst, bool need_f16_K, bool need_f16_V) {
+    const auto f16_extra = ggml_cuda_flash_attn_ext_get_f16_extra_data(dst, need_f16_K, need_f16_V);
+    return GGML_PAD(f16_extra.end, 128);
 }
 
 template <int D, int nthreads>
@@ -981,7 +1031,7 @@ template <int DV, int ncols1, int ncols2>
 void launch_fattn(
     ggml_backend_cuda_context & ctx, ggml_tensor * dst, fattn_kernel_t fattn_kernel, const int nwarps, const size_t nbytes_shared,
     const int nbatch_fa, const bool need_f16_K, const bool need_f16_V, const bool stream_k, const bool use_sparse,
-    const int warp_size = WARP_SIZE, const bool async_kv_preload = false
+    const int warp_size = WARP_SIZE, const bool async_kv_preload = false, const bool q8_dot4_prepack = false
 ) {
     constexpr int ncols = ncols1 * ncols2;
 
@@ -1245,11 +1295,24 @@ void launch_fattn(
     // TODO other tensor dimensions after removal of WMMA kernel:
     const uint3 ne01 = init_fastdiv_values(Q->ne[1]);
 
+    const char * Q_data = (const char *) Q->data;
+    if (q8_dot4_prepack) {
+        const uintptr_t q8_ptr = ggml_cuda_flash_attn_ext_q8_prepack_data(KQV, need_f16_K, need_f16_V);
+        float scale = 0.0f;
+        memcpy(&scale, (const float *) KQV->op_params, sizeof(float));
+        const int nrows = Q->ne[1]*Q->ne[2]*Q->ne[3];
+        ggml_cuda_fa_q8_prepack_kernel<<<nrows, 256, 0, main_stream>>>(
+            (const float *) Q->data, (char *) q8_ptr, Q->ne[1], Q->ne[2], Q->ne[3],
+            Q->nb[1], Q->nb[2], Q->nb[3], scale);
+        CUDA_CHECK(cudaGetLastError());
+        Q_data = (const char *) q8_ptr;
+    }
+
     GGML_ASSERT(block_dim.x % warp_size == 0);
 
     ggml_cuda_kernel_launch_params launch_params = ggml_cuda_kernel_launch_params(blocks_num, block_dim, nbytes_shared, main_stream);
     ggml_cuda_kernel_launch(fattn_kernel, launch_params,
-        (const char *) Q->data,
+        Q_data,
         K_data,
         V_data,
         mask ? ((const char *) mask->data) : nullptr,
