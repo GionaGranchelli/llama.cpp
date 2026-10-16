@@ -1,6 +1,6 @@
 # M31-FORK-AGENT-0001 checkpoint
 
-**Checkpoint:** 2026-10-16 16:54 UTC
+**Checkpoint:** 2026-10-16 18:16 UTC
 **Campaign branch:** `product/m31-fork-agent-0001`
 **Parser-fix implementation SHA:** `8f923819cbea0b673d7b16754b4b54110bdf998e`
 
@@ -22,6 +22,15 @@ Prior OMP traffic provides evidence that long prompts and live prefix reuse have
 | 3 — Eight-turn OMP coding task | INCOMPLETE | OMP made real tool calls in the parser task, but the session did not complete eight fixed turns, a verified repository change by OMP, and the predefined acceptance sequence. The latest retry timed out. |
 | 4 — Product bottleneck | NOT RUN | No complete workflow to profile. |
 
+## Latest Oh My Pi attempts
+
+Two fresh runs were made from the exact pre-fix task commit in isolated worktree `/tmp/m31-omp-task-21771-run2`; both left it clean.
+
+- Run 2 included the entire task plan in its initial 69.7K-token source bundle. It was stopped after 22m34s without finishing Turn 1. The agent issued read/search/bash tools, then produced an incomplete edit-tool call that failed JSON parsing; no source change was applied. Transcript: `agent-session-run2-aborted.jsonl` (SHA-256 `8bd41e8b15b7eac8b78b6848ddfe3c1175a4f48fdef239b801514e28b1bb79cc`).
+- Run 3 separated source/issue context from the fixed turn prompts and disabled write tools. Its first request evaluated 75,800 uncached prompt tokens in about 490.6 s. The conversation reached 100,776 tokens. It made real `read` and `grep` calls, made no edits, and was stopped after 26m11s still in Turn 1. Transcript: `agent-session-run3-aborted.jsonl` (SHA-256 `6a11d68d28dad1872723cd9861b596095abe286e95f7cd60f2fe635c485597fd`).
+- Run 3 server counters increased by 96,240 uncached prompt tokens, 622,790 cached prompt tokens, and 10,298 generated tokens over the attempt; prompt evaluation time increased 683.75 s. The reported decode average was 11.47 tok/s. Individual warm prompt-evaluation segments for a few thousand new tokens were about 20–58 s, already above the 15 s incremental target; these are request prompt timings, not a completed eight-turn TTFT distribution.
+- The same guarded server stayed healthy and idle after cancellation. Its 3,914-sample temperature trace ranged from 30–69°C junction; target power cap remained 180 W and the other MI50 remained idle. No thermal warning or guard stop occurred.
+
 ## Measurements observed so far
 
 - OMP long prompt: 76,812 tokens; cold prefill 498.849 s; 4,096 generated tokens at about 12.85 tok/s; maximum observed junction temperature 71°C. This 76.8K run exceeds the 420-second target, although it is not the canonical 65,536-token control. The model response ended at the output limit and did not count as an accepted task turn.
@@ -34,9 +43,9 @@ Prior OMP traffic provides evidence that long prompts and live prefix reuse have
 
 ## Current blockers and next actions
 
-The product gate remains open because there is no completed eight-turn agent session. The last OMP attempt used a very large prompt and hit the client deadline; repeating that same uncached request is not justified.
+The product gate remains open because no OMP turn has completed the fixed task sequence, and no OMP code change or acceptance test exists. The latest read-only run spent 26 minutes in Turn 1. Its prompt construction is now separated from the task plan, and write tools are withheld until the implementation turn; the next targeted attempt disables model thinking to test whether excessive reasoning/tool cycling is the cause.
 
-Next: confirm default/J40 route-selection logs, rebuild the agent server from the parser-fix commit, then run OMP with the fixed eight-turn workload and preserve per-turn cache/tool evidence. The campaign remains unqualified until the workflow and remaining gates pass.
+Next: run the same fixed Turn 1 from the isolated pre-fix worktree with OMP thinking disabled and read-only tools. If it completes, proceed through the prewritten turns with writes enabled only for Turn 4, collecting per-turn server and transcript evidence. Do not claim the agent gate unless all eight turns, actual code/test outcomes, and context/cache evidence pass. The campaign remains unqualified.
 
 ## Transcript evidence
 

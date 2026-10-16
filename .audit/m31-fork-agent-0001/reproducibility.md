@@ -45,6 +45,16 @@ Both transcripts are copied into this evidence directory as `agent-session-initi
 - `agent-session-initial.jsonl` SHA-256: `c178df9bde75810521fa5e0de74a29a52c8411064baf7822bc8c359ed1a2ecef`
 - `agent-session.jsonl` SHA-256: `6e49ce96afd7efaca4e9de1912ccf2f91238c7092799a440d1f8d70faf535534`
 
+## Latest OMP attempts
+
+- OMP binary: `/tmp/m31-omp-v18.11.1/omp`, version `18.11.1`.
+- Isolated profile home: `/tmp/m31-omp-home`; provider model `/models/Qwen3.8-27B-Q4_K_M.gguf`, context window `131072`, `maxTokens: 4096`, API `openai-completions`, base URL `http://127.0.0.1:18081/v1`.
+- Task source worktree: `/tmp/m31-omp-task-21771-run2`, branch `agent/m31-omp-21771-run2`, exact base SHA `58a724757044fda4bbce1cd633b73274c4d32d56`. It remained clean after both interrupted runs.
+- Run 2 supplied `task-context-bundle.md` (69,665 tokenizer tokens) together with fixed Turn 1 and enabled `read,bash,edit,grep,glob,lsp`, `--thinking low`. It ran 1,354 seconds and was interrupted during Turn 1. Its transcript is `agent-session-run2-aborted.jsonl` (SHA-256 `8bd41e8b15b7eac8b78b6848ddfe3c1175a4f48fdef239b801514e28b1bb79cc`).
+- Run 3 used source/issue-only context `agent-source-context.md` (SHA-256 `e89c41cf2358eb89a283a0c392a9dcbc866298ec737d35b02eec77c2b5d9d8eb`, 68,961 server-tokenizer tokens), fixed Turn 1, `read,grep,glob,lsp` only, and `--thinking low`. It ran 1,571 seconds and was interrupted during Turn 1. Its transcript is `agent-session-run3-aborted.jsonl` (SHA-256 `6a11d68d28dad1872723cd9861b596095abe286e95f7cd60f2fe635c485597fd`).
+- Run 3’s actual prompt context reached 100,776 tokens; the initial uncached prompt evaluated 75,800 tokens in about 490.6 seconds. Aggregate per-attempt counter deltas are recorded in `metrics.json`. The attempt is not an eight-turn result.
+- A follow-up diagnostic run may use `--thinking off`; this is a different OMP configuration and must be recorded separately. No source, model, server, power, or task-prompt change is implied.
+
 ## Reproduction commands
 
 The existing server was started with the campaign's guarded runner and these relevant options:
