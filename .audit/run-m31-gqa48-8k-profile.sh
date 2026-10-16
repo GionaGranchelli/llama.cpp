@@ -61,6 +61,12 @@ image_id="$(podman image inspect --format '{{.Id}}' "$image")"
     rocm-smi -d "$gpu" --showtemp
 } > "$run_dir/metadata.txt"
 
+read_junction() {
+    local gpu="$1" output
+    if ! output="$(rocm-smi -d "$gpu" --showtemp 2>/dev/null)"; then return 1; fi
+    awk '/Sensor junction/ {print $NF; found=1; exit} END {if (!found) exit 1}' <<< "$output"
+}
+
 run_variant() {
     local variant="$1" extra_env=() start_temp container status=0 stop_reason="" cool_started started_epoch last_heartbeat=-60
     if [[ "$variant" == candidate ]]; then
@@ -68,7 +74,7 @@ run_variant() {
     fi
     cool_started="$(date +%s)"
     while true; do
-        start_temp="$(rocm-smi -d "$gpu" --showtemp 2>/dev/null | awk '/Sensor junction/ {print $NF}')"
+        start_temp="$(read_junction "$gpu")" || start_temp=""
         [[ -n "$start_temp" ]] || { echo 'junction telemetry unavailable' >&2; return 7; }
         if awk -v t="$start_temp" 'BEGIN { exit !(t <= 40) }'; then break; fi
         if (( $(date +%s) - cool_started >= 600 )); then
@@ -97,7 +103,7 @@ run_variant() {
         local temp now elapsed
         now="$(date -u +%FT%TZ)"
         elapsed=$(( $(date +%s) - started_epoch ))
-        temp="$(rocm-smi -d "$gpu" --showtemp 2>/dev/null | awk '/Sensor junction/ {print $NF}')"
+        temp="$(read_junction "$gpu")" || temp=""
         printf '%s,%s\n' "$now" "$temp" >> "$run_dir/$variant.temperature.csv"
         if [[ -z "$temp" ]]; then
             stop_reason='junction telemetry unavailable; fail-closed stop'

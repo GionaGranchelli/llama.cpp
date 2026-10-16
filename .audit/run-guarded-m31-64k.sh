@@ -70,7 +70,7 @@ if [[ "$actual_model_sha" != "$model_sha" ]]; then
     exit 6
 fi
 
-start_temp="$(rocm-smi -d "$gpu_id" --showtemp | awk '/Sensor junction/ {print $NF; exit}')"
+start_temp="$(rocm-smi -d "$gpu_id" --showtemp | awk '/Sensor junction/ {print $NF; exit}')" || start_temp=""
 if [[ -z "$start_temp" ]] || awk -v t="$start_temp" 'BEGIN { exit !(t > 40) }'; then
     echo "Refusing run: GPU junction must start at or below 40 C (read '$start_temp')" >&2
     exit 7
