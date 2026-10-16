@@ -1,0 +1,79 @@
+{
+  "campaign": "M31-FORK-AGENT-0001",
+  "checkpoint_utc": "2026-10-16T16:54:00Z",
+  "classification": "IN_PROGRESS",
+  "repository": {
+    "branch": "product/m31-fork-agent-0001",
+    "sha": "8f923819cbea0b673d7b16754b4b54110bdf998e",
+    "worktree_clean": true,
+    "remote_branch_verified": true
+  },
+  "model": {
+    "path_in_container": "/models/Qwen3.8-27B-Q4_K_M.gguf",
+    "sha256": "7e78da5d7e3ae28d178121f58646953305f3e5bd3cb46f4a75584e8b6c6fe169"
+  },
+  "hardware": {
+    "host": "machinist",
+    "target_bdf": "0000:88:00.0",
+    "target_rocm_index": 2,
+    "target_uuid": "GPU-2152414173497dd3",
+    "second_mi50_bdf": "0000:04:00.0",
+    "second_mi50_idle_observed": true,
+    "power_cap_w": 180,
+    "temperature_edge_c_current_sample": 30,
+    "temperature_junction_c_last_full_sample": 39,
+    "temperature_scope": "edge is current; junction is last full campaign sample; neither is a long-run peak",
+    "target_vram_percent_observed": 65,
+    "target_gpu_utilization_percent_observed": 0
+  },
+  "server": {
+    "healthy": true,
+    "processing_request": false,
+    "context_tokens": 131072,
+    "slots": 1,
+    "no_context_shift": true,
+    "slot_save_path_enabled": true,
+    "podman_label_disable": true,
+    "build_info": "b11816-58a724757044fda4bbce1cd633b73274c4d32d56",
+    "binary_sha256": null,
+    "container_image_digest": null
+  },
+  "gates": {
+    "gate0_environment": "PARTIAL",
+    "gate1_matched_64k_default_vs_j40": "INCOMPLETE",
+    "gate2_controlled_kv_reuse_and_restore": "INCOMPLETE",
+    "gate3_eight_turn_omp_task": "INCOMPLETE",
+    "gate4_bottleneck_profile": "NOT_RUN"
+  },
+  "observed_omp_run": {
+    "prompt_tokens": 76812,
+    "cold_prefill_seconds": 498.849,
+    "generated_tokens": 4096,
+    "decode_tokens_per_second": 12.85,
+    "junction_peak_c": 71,
+    "accepted_task_turn": false
+  },
+  "historical_j40_screen": {
+    "j40_64k_seconds": 380.861,
+    "matched_route_confirmed_default_seconds": null,
+    "decision": "INCONCLUSIVE"
+  },
+  "observed_cache_reuse": {
+    "reported_cached_tokens_on_continuation": 76808,
+    "controlled_65536_suffix_test": false,
+    "save_restart_restore_test": false
+  },
+  "aggregate_server_metrics": {
+    "prompt_tokens_processed": 469386,
+    "prompt_tokens_cached": 7542910,
+    "generated_tokens": 48279,
+    "average_decode_tokens_per_second_gauge": 11.3312,
+    "use_as_qualification_evidence": false
+  },
+  "agent_task": {
+    "fixed_eight_turn_sequence_completed": false,
+    "repository_change_by_omp_verified": false,
+    "predefined_acceptance_tests_passed_by_omp": false,
+    "latest_attempt_timed_out": true
+  }
+}
