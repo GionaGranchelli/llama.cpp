@@ -146,6 +146,12 @@ The 2048 microbatch completed without allocation failure, with a sampled 19.25 G
 
 This verifies that the pinned fork can allocate a 64K context on GPU2 while keeping all model layers there. It does not verify processing 64K prompt tokens. The full-length prefill remains pending because both power caps are currently at their stock maxima and the 8K run reached the thermal warning line.
 
+For a future `llama-bench -p 65536` run, the benchmark creates 65,536 random token IDs and processes them as a single prompt measurement in batches of up to `-b` tokens, internally limited further by `-ub`. This is a genuine full-length prefill, but it is not a natural coding-agent prompt. Separate product validation should use a tokenizer-counted repository prompt; the random-token workload remains useful for a reproducible kernel-performance A/B.
+
+## Existing sequence checkpoint support
+
+The fork already exposes sequence state size/data/save/load APIs in `include/llama.h`. `llama_context::state_seq_save_file()` writes the token history and memory state, and the server's slot save/restore path calls these APIs. The pinned model is identified as Qwen3.5 27B in the benchmark output; `llama-model.cpp` routes Qwen3.5 through hybrid memory, and both hybrid and hybrid-ISWA implementations serialize the attention cache and recurrent state. This is strong source evidence that MIInfer's checkpoint machinery should not be transplanted yet. A real Machinist ROCm save/restart/restore run is still needed before claiming the agent workflow is covered.
+
 ## GFX906 MFMA attempt — invalidated before performance use
 
 The direct-Q8 MFMA prototype did not run on MI50. `amd_mfma_available()` accepts CDNA1 and newer; GFX906 is Vega20 and is below that range. The HIP source defines `AMD_MFMA_AVAILABLE` only for architectures marked `CDNA`, and its `hip.h` defines `CDNA` for gfx908, gfx90a, gfx942, and gfx950, not gfx906. Therefore `GGML_CUDA_FA_Q8_DIRECT_MFMA=1` never selected the prototype on either Machinist MI50.
@@ -197,3 +203,20 @@ This is a promising 8K result, not a 64K qualification or grounds to change the 
 The existing GCN Q4_K `J=40` configuration has 128 VGPRs and zero private-segment bytes per work item in the rocprof metadata. It was screened with `GGML_CUDA_MMQ_Q4K_J40=1`, keeping the default at J=64 and retaining the separate J=32 selector. The Q4_K operator suite passed with J=40 enabled. A matched 4K GPU2 profile selected `mul_mat_q<GGML_TYPE_Q4_K,40,...>` and measured 8.781 s for that kernel and 14.555 s total kernel dispatch, versus 10.544 s and 16.322 s at J=64. J=40 also beat J=32's 9.332 s Q4_K and 15.107 s total dispatch in the matched profile.
 
 Two same-build, same-card, unprofiled 8K J=40 runs took 30.399 s and 30.404 s at 269.48 and 269.44 tok/s. The same-build default control took 33.849 s at 242.02 tok/s. The median J=40 wall time is 10.2% lower than the control. J=40 started at 34 C and 37 C; the highest sampled junction temperatures were 78 C and 80 C. The control started at 35 C and reached 77 C. These are small-sample screens, not long-context qualification. Keep J=40 opt-in until a guarded 64K prefill proves the gain remains and the thermal margin is acceptable.
+
+## J=40 confirmation on both MI50s at 4K
+
+Rebuilt the remote working tree in the pinned ROCm 7.2.1 container because its copied build directory had an invalid `/workspace` CMake path. The build reconfigured successfully and rebuilt `llama-bench` plus `test-backend-ops`. With `GGML_CUDA_MMQ_Q4K_J40=1`, the Q4_K `MUL_MAT` backend suite passed 120/120 cases on GPU2 and again on GPU0. A first filter used the wrong parameter name and selected 0 tests; the corrected `type_a=q4_K` filter selected and passed the 120 cases on each card.
+
+Then screened one 4K Q4_K J=40 model run on each MI50 simultaneously, followed by one unchanged-default 4K run on each card simultaneously. All runs used the pinned model SHA, `-b 2048 -ub 1024`, Q8 K/V, Flash Attention and 99 GPU layers. The J=40 selector was enabled for candidate runs and explicitly unset for the controls. The remote source tree reports `cf6a020-dirty`; its J=40 source edit matches the pushed fork change at `0dfcf0166`.
+
+| Card / BDF | J=40 samples | Default control | J=40 mean vs control | Highest sampled junction |
+| --- | ---: | ---: | ---: | ---: |
+| GPU0 / `0000:04:00.0` | 15.0615 s, 15.0580 s | 16.6408 s | 9.5% lower wall time | 56 C |
+| GPU2 / `0000:88:00.0` | 15.0039 s, 15.0044 s | 16.8199 s | 10.8% lower wall time | 49 C |
+
+This repeats the J=40 direction on both physical cards, with four candidate samples and two controls total. It is still a short-context screen: each card has only one default sample, and candidate and control runs did not start at identical temperatures. No run approached the 80 C warning threshold. The result supports keeping J=40 for the next long-context check, but does not qualify 64K performance or justify changing the default.
+
+## Decode smoke with the J=40 selector
+
+On GPU2, ran one `-p 512 -n 64` llama-bench sample with the default dispatch and one with `GGML_CUDA_MMQ_Q4K_J40=1`. Generation throughput was 25.4135 tok/s with default dispatch and 25.4588 tok/s with J=40 enabled. This is effectively unchanged at the precision of a single sample. The J=40 selector requires at least 40 activation columns, while token-by-token decode uses a one-token batch, so this is a smoke check that the opt-in flag does not alter decode dispatch, not evidence of a decode speedup or a correctness comparison.
