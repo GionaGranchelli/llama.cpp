@@ -64,6 +64,27 @@ if [[ "$bus" != "$target_bdf" ]]; then
     echo "Refusing run: ROCm index $gpu_id maps to $bus, expected $target_bdf" >&2
     exit 4
 fi
+junction_input_for_bdf() {
+    local wanted="$1" card_path bdf label input
+    for card_path in /sys/class/drm/card[0-9]*; do
+        [[ -e "$card_path/device" ]] || continue
+        bdf="$(basename "$(readlink -f "$card_path/device")")"
+        [[ "$bdf" == "$wanted" ]] || continue
+        for label in "$card_path"/device/hwmon/hwmon*/temp*_label; do
+            [[ -r "$label" && "$(cat "$label")" == junction ]] || continue
+            input="${label%_label}_input"
+            [[ -r "$input" ]] && { printf '%s\n' "$input"; return 0; }
+        done
+    done
+    return 1
+}
+junction_input="$(junction_input_for_bdf "$target_bdf")" || { echo "GPU junction sysfs sensor unavailable for $target_bdf" >&2; exit 4; }
+read_junction() {
+    local millidegrees
+    millidegrees="$(cat "$junction_input" 2>/dev/null)" || return 1
+    [[ "$millidegrees" =~ ^[0-9]+$ ]] || return 1
+    awk -v t="$millidegrees" 'BEGIN { printf "%.1f", t/1000 }'
+}
 if ! rocm-smi --showpids | grep -q 'No KFD PIDs currently running'; then
     echo "Refusing run: KFD processes are already using a GPU" >&2
     exit 5
@@ -74,7 +95,7 @@ if [[ "$actual_model_sha" != "$model_sha" ]]; then
     exit 6
 fi
 
-start_temp="$(rocm-smi -d "$gpu_id" --showtemp | awk '/Sensor junction/ {print $NF; exit}')" || start_temp=""
+start_temp="$(read_junction)" || start_temp=""
 if [[ -z "$start_temp" ]] || awk -v t="$start_temp" 'BEGIN { exit !(t > 40) }'; then
     echo "Refusing run: GPU junction must start at or below 40 C (read '$start_temp')" >&2
     exit 7
@@ -113,7 +134,7 @@ warned=0
 
 while kill -0 "$bench_pid" 2>/dev/null; do
     now="$(date -u +%FT%TZ)"
-    temp="$(rocm-smi -d "$gpu_id" --showtemp | awk '/Sensor junction/ {print $NF; exit}')" || temp=""
+    temp="$(read_junction)" || temp=""
     if [[ -z "$temp" ]]; then
         stop_reason="junction telemetry unavailable; fail-closed stop"
         podman kill "$container_name" >/dev/null 2>&1 || true
@@ -134,7 +155,7 @@ while kill -0 "$bench_pid" 2>/dev/null; do
         podman kill "$container_name" >/dev/null 2>&1 || true
         break
     fi
-    sleep 1
+    sleep 0.2
 done
 
 set +e

@@ -23,6 +23,21 @@ mkdir -p "$run_dir"
 
 bus="$(rocm-smi -d "$gpu" --showbus 2>/dev/null | awk -F ': ' '/PCI Bus:/ {print $NF}')"
 [[ "$bus" == "$expected_bdf" ]] || { echo "GPU$gpu maps to '$bus', expected $expected_bdf" >&2; exit 3; }
+junction_input_for_bdf() {
+    local wanted="$1" card_path bdf label input
+    for card_path in /sys/class/drm/card[0-9]*; do
+        [[ -e "$card_path/device" ]] || continue
+        bdf="$(basename "$(readlink -f "$card_path/device")")"
+        [[ "$bdf" == "$wanted" ]] || continue
+        for label in "$card_path"/device/hwmon/hwmon*/temp*_label; do
+            [[ -r "$label" && "$(cat "$label")" == junction ]] || continue
+            input="${label%_label}_input"
+            [[ -r "$input" ]] && { printf '%s\n' "$input"; return 0; }
+        done
+    done
+    return 1
+}
+junction_input="$(junction_input_for_bdf "$expected_bdf")" || { echo "GPU junction sysfs sensor unavailable for $expected_bdf" >&2; exit 3; }
 kfd_info="$(rocm-smi --showpids 2>/dev/null)"
 grep -q 'No KFD PIDs currently running' <<< "$kfd_info" || { echo 'refusing profile while a KFD process is active' >&2; exit 4; }
 actual_model_sha="$(sha256sum "$model" | awk '{print $1}')"
@@ -62,9 +77,10 @@ image_id="$(podman image inspect --format '{{.Id}}' "$image")"
 } > "$run_dir/metadata.txt"
 
 read_junction() {
-    local gpu="$1" output
-    if ! output="$(rocm-smi -d "$gpu" --showtemp 2>/dev/null)"; then return 1; fi
-    awk '/Sensor junction/ {print $NF; found=1; exit} END {if (!found) exit 1}' <<< "$output"
+    local millidegrees
+    millidegrees="$(cat "$junction_input" 2>/dev/null)" || return 1
+    [[ "$millidegrees" =~ ^[0-9]+$ ]] || return 1
+    awk -v t="$millidegrees" 'BEGIN { printf "%.1f", t/1000 }'
 }
 
 run_variant() {
@@ -74,7 +90,7 @@ run_variant() {
     fi
     cool_started="$(date +%s)"
     while true; do
-        start_temp="$(read_junction "$gpu")" || start_temp=""
+        start_temp="$(read_junction)" || start_temp=""
         [[ -n "$start_temp" ]] || { echo 'junction telemetry unavailable' >&2; return 7; }
         if awk -v t="$start_temp" 'BEGIN { exit !(t <= 40) }'; then break; fi
         if (( $(date +%s) - cool_started >= 600 )); then
@@ -103,7 +119,7 @@ run_variant() {
         local temp now elapsed
         now="$(date -u +%FT%TZ)"
         elapsed=$(( $(date +%s) - started_epoch ))
-        temp="$(read_junction "$gpu")" || temp=""
+        temp="$(read_junction)" || temp=""
         printf '%s,%s\n' "$now" "$temp" >> "$run_dir/$variant.temperature.csv"
         if [[ -z "$temp" ]]; then
             stop_reason='junction telemetry unavailable; fail-closed stop'
@@ -120,7 +136,7 @@ run_variant() {
             echo "$now $variant elapsed=${elapsed}s junction=${temp} C" >&2
             last_heartbeat="$elapsed"
         fi
-        sleep 1
+        sleep 0.2
     done
     wait "$pid" || status=$?
     printf '%s stop_reason=%s status=%s\n' "$variant" "$stop_reason" "$status" >> "$run_dir/metadata.txt"
