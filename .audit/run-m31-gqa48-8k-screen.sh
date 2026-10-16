@@ -6,7 +6,9 @@ build_dir="${M31_BUILD_DIR:-$workspace/build-gqa48}"
 image="localhost/miinfer-dev:rocm-7.2.1"
 gpu="${M31_GPU:-2}"
 ubatch="${M31_UB:-1024}"
+prompt_tokens="${M31_PROMPT_TOKENS:-8192}"
 run_candidate="${M31_RUN_CANDIDATE:-1}"
+candidate_mode="${M31_CANDIDATE_MODE:-dot4}"
 model="/home/machinist/models/Qwen3.8-27B-Q4_K_M.gguf"
 model_sha="7e78da5d7e3ae28d178121f58646953305f3e5bd3cb46f4a75584e8b6c6fe169"
 case "$gpu" in
@@ -24,6 +26,14 @@ esac
 }
 [[ "$run_candidate" == 0 || "$run_candidate" == 1 ]] || {
     echo "M31_RUN_CANDIDATE must be 0 or 1" >&2
+    exit 2
+}
+[[ "$prompt_tokens" =~ ^[0-9]+$ ]] && (( prompt_tokens > 0 && prompt_tokens <= 65536 )) || {
+    echo "M31_PROMPT_TOKENS must be an integer from 1 to 65536" >&2
+    exit 2
+}
+[[ "$candidate_mode" == dot4 || "$candidate_mode" == direct_q8 ]] || {
+    echo "M31_CANDIDATE_MODE must be dot4 or direct_q8" >&2
     exit 2
 }
 
@@ -84,8 +94,8 @@ image_id="$(podman image inspect --format '{{.Id}}' "$image")"
     printf 'source_sha256=%s\nbinary_sha256=%s\nbackend_sha256=%s\n' \
         "$(sha256sum "$workspace/ggml/src/ggml-cuda/fattn-tile.cuh" | awk '{print $1}')" \
         "$(sha256sum "$binary" | awk '{print $1}')" "$(sha256sum "$backend" | awk '{print $1}')"
-    printf 'image_id=%s\nmodel_sha256=%s\ngpu_index=%s\ngpu_bdf=%s\ncap0_uw=%s\ncap2_uw=%s\nubatch=%s\nrun_candidate=%s\n' \
-        "$image_id" "$actual_model_sha" "$gpu" "$bus" "$cap0" "$cap2" "$ubatch" "$run_candidate"
+    printf 'image_id=%s\nmodel_sha256=%s\ngpu_index=%s\ngpu_bdf=%s\ncap0_uw=%s\ncap2_uw=%s\nprompt_tokens=%s\nubatch=%s\nrun_candidate=%s\ncandidate_mode=%s\n' \
+        "$image_id" "$actual_model_sha" "$gpu" "$bus" "$cap0" "$cap2" "$prompt_tokens" "$ubatch" "$run_candidate" "$candidate_mode"
     printf '%s\n' "$kfd_info"
     uptime
     nproc
@@ -103,7 +113,11 @@ read_junction() {
 run_variant() {
     local variant="$1" extra_env=() start_temp container status=0 stop_reason="" cool_started started_epoch last_heartbeat=-60
     if [[ "$variant" == candidate ]]; then
-        extra_env=(-e GGML_CUDA_FA_Q8_DOT4_PREPACK=1)
+        if [[ "$candidate_mode" == dot4 ]]; then
+            extra_env=(-e GGML_CUDA_FA_Q8_DOT4_PREPACK=1)
+        else
+            extra_env=(-e GGML_CUDA_FA_Q8_DIRECT_TILE=1)
+        fi
     fi
 
     cool_started="$(date +%s)"
@@ -126,7 +140,7 @@ run_variant() {
         -e "ROCR_VISIBLE_DEVICES=$gpu" -e LD_LIBRARY_PATH="/workspace/$build_rel/bin" "${extra_env[@]}" \
         -v "$workspace:/workspace" -v /home/machinist/models:/models:ro -w /workspace "$image" \
         "./$build_rel/bin/llama-bench" -m /models/Qwen3.8-27B-Q4_K_M.gguf \
-        -p 8192 -n 0 -r 1 --no-warmup -b 2048 -ub "$ubatch" \
+        -p "$prompt_tokens" -n 0 -r 1 --no-warmup -b 2048 -ub "$ubatch" \
         -ctk q8_0 -ctv q8_0 -fa on -ngl 99 -dev ROCm0 -o jsonl --progress \
         > "$run_dir/${variant}.log" 2>&1 &
     local pid=$!
