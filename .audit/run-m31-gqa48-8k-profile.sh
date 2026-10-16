@@ -126,6 +126,6 @@ run_variant candidate
 rocm-smi -d "$gpu" --showtemp >> "$run_dir/metadata.txt"
 for variant in default candidate; do
     printf '%s profiler summary:\n' "$variant"
-    rg -n 'Kernel_Name|flash_attn|Total Duration|Time\(ns\)' "$run_dir/$variant.log" | tail -n 24 || true
+    grep -En 'Kernel_Name|flash_attn|Total Duration|Time\(ns\)' "$run_dir/$variant.log" | tail -n 24 || true
 done
 echo "evidence=$run_dir"
