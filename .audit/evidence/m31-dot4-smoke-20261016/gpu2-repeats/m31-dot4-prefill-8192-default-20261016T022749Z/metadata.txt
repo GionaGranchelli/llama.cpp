@@ -1,0 +1,19 @@
+variant=default
+prompt_tokens=8192
+gpu_index=2
+bdf=0000:88:00.0
+model_sha256=7e78da5d7e3ae28d178121f58646953305f3e5bd3cb46f4a75584e8b6c6fe169
+binary_sha256=540df0e549454caf6b4b199520fb33c3ec6b04f5e41b3689b7e2c52733c4659d
+image=localhost/miinfer-m31-99840:rocm-7.2.1
+start_junction_c=32.0
+stop_reason=
+run_status=0
+
+
+============================ ROCm System Management Interface ============================
+====================================== Temperature =======================================
+GPU[2]		: Temperature (Sensor edge) (C): 47.0
+GPU[2]		: Temperature (Sensor junction) (C): 50.0
+GPU[2]		: Temperature (Sensor memory) (C): 48.0
+==========================================================================================
+================================== End of ROCm SMI Log ===================================
