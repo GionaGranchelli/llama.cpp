@@ -4,8 +4,8 @@ set -Eeuo pipefail
 workspace="${M31_CANDIDATE_WORKSPACE:-/tmp/m31-current-01a910937}"
 build_dir="${M31_BUILD_DIR:-$workspace/build-m31}"
 image="localhost/miinfer-dev:rocm-7.2.1"
-gpu=2
-bdf=0000:88:00.0
+gpu="${M31_GPU_INDEX:-2}"
+bdf="${M31_GPU_BDF:-0000:88:00.0}"
 model="/home/machinist/models/Qwen3.8-27B-Q4_K_M.gguf"
 model_sha="7e78da5d7e3ae28d178121f58646953305f3e5bd3cb46f4a75584e8b6c6fe169"
 debug="$build_dir/bin/llama-debug"
@@ -32,7 +32,7 @@ cap_for_bdf() {
 
 image_id="$(podman image inspect --format '{{.Id}}' "$image")"
 timestamp="$(date -u +%Y%m%dT%H%M%SZ)"
-run_dir="/tmp/m31-gqa6-8k-logits-gpu2-$timestamp"
+run_dir="/tmp/m31-gqa6-8k-logits-gpu${gpu}-$timestamp"
 mkdir -p "$run_dir"
 trap 'echo evidence="$run_dir"' EXIT
 
