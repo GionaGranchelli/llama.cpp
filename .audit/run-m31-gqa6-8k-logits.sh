@@ -65,7 +65,7 @@ fi
     printf 'prompt_bytes=%s\nprompt_sha256=%s\n' \
         "$(wc -c < "$run_dir/prompt.txt")" "$(sha256sum "$run_dir/prompt.txt" | awk '{print $1}')"
 } > "$run_dir/metadata.txt"
-printf 'utc,junction_c\n' > "$run_dir/temperature.csv"
+printf 'utc,junction_c,fan_rpm,pwm\n' > "$run_dir/temperature.csv"
 
 junction_input=""
 for card in /sys/class/drm/card[0-9]*; do
@@ -78,6 +78,9 @@ for card in /sys/class/drm/card[0-9]*; do
     done
 done
 [[ -r "$junction_input" ]] || { echo "junction sensor missing for $bdf" >&2; exit 7; }
+hwmon_dir="${junction_input%/*}"
+fan_input="$hwmon_dir/fan1_input"
+pwm_input="$hwmon_dir/pwm1"
 read_temp() {
     local raw
     raw="$(cat "$junction_input")" || return 1
@@ -117,7 +120,11 @@ run_variant() {
             break
         fi
         elapsed=$(( $(date +%s) - started ))
-        printf '%s,%s\n' "$(date -u +%FT%TZ)" "$temp" >> "$run_dir/temperature.csv"
+        fan_rpm=na
+        fan_pwm=na
+        [[ ! -r "$fan_input" ]] || fan_rpm="$(cat "$fan_input")"
+        [[ ! -r "$pwm_input" ]] || fan_pwm="$(cat "$pwm_input")"
+        printf '%s,%s,%s,%s\n' "$(date -u +%FT%TZ)" "$temp" "$fan_rpm" "$fan_pwm" >> "$run_dir/temperature.csv"
         if awk -v t="$temp" 'BEGIN { exit !(t >= 84) }'; then
             reason="junction reached ${temp} C; stopped before 85 C"
         elif (( elapsed >= 300 )); then

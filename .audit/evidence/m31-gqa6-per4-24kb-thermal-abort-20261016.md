@@ -24,3 +24,12 @@ This confirms the thermal limit persists for the larger logits workload at
 225 W. Continue with shorter correctness diagnostics until the MI50 is capped
 at or below 180 W; do not infer a thermal problem in the dot4 kernel itself,
 because the default path was stopped before the candidate began.
+
+## Follow-up idle sensor check
+
+After the abort, the BDF-matched sysfs `junction` labels agreed with
+`rocm-smi` at idle: GPU0 35 C and GPU2 31 C. Both cards reported fan PWM 37/255
+(15%) and 0 RPM while idle. GPU0's cap was still 225 W, GPU2's 300 W; no KFD
+PIDs or Podman containers were active. The runner now records fan RPM and PWM
+alongside junction temperature during future runs, so load-time fan response is
+captured rather than inferred from the idle reading.
