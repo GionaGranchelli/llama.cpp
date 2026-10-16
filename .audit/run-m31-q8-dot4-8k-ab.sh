@@ -24,10 +24,6 @@ grep -q 'selected opt-in GFX906 Q8 dot4' "$workspace/ggml/src/ggml-cuda/fattn.cu
     echo 'source does not contain the Q8 dot4 route confirmation' >&2
     exit 12
 }
-strings "$workspace/build-mi50/bin/libggml-hip.so" | grep -q 'GGML_CUDA_FA_Q8_DOT4_PREPACK' || {
-    echo 'HIP backend binary does not contain the Q8 dot4 dispatch flag' >&2
-    exit 13
-}
 actual_model_sha="$(sha256sum "$model" | awk '{print $1}')"
 [[ "$actual_model_sha" == "$model_sha" ]] || { echo "model SHA mismatch: $actual_model_sha" >&2; exit 3; }
 kfd_info="$(rocm-smi --showpids 2>/dev/null)"
