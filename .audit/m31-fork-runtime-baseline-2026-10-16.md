@@ -212,14 +212,16 @@ Rebuilt the remote working tree in the pinned ROCm 7.2.1 container because its c
 
 Then screened one 4K Q4_K J=40 model run on each MI50 simultaneously, followed by one unchanged-default 4K run on each card simultaneously. All runs used the pinned model SHA, `-b 2048 -ub 1024`, Q8 K/V, Flash Attention and 99 GPU layers. The J=40 selector was enabled for candidate runs and explicitly unset for the controls. The remote source tree reports `cf6a020-dirty`; its J=40 source edit matches the pushed fork change at `0dfcf0166`.
 
-| Card / BDF | J=40 samples | Default control | J=40 mean vs control | Highest sampled junction |
+| Card / BDF | J=40 samples | Default control | J=40 mean vs control | Highest sampled edge |
 | --- | ---: | ---: | ---: | ---: |
 | GPU0 / `0000:04:00.0` | 15.0615 s, 15.0580 s | 16.6408 s | 9.5% lower wall time | 56 C |
 | GPU2 / `0000:88:00.0` | 15.0039 s, 15.0044 s | 16.8199 s | 10.8% lower wall time | 49 C |
 
-This repeats the J=40 direction on both physical cards, with four candidate samples and two controls total. It is still a short-context screen: each card has only one default sample, and candidate and control runs did not start at identical temperatures. No run approached the 80 C warning threshold. The result supports keeping J=40 for the next long-context check, but does not qualify 64K performance or justify changing the default.
+This repeats the J=40 direction on both physical cards, with four candidate samples and two controls total. It is still a short-context screen: each card has only one default sample, and candidate and control runs did not start at identical temperatures. The figures in the table are edge-sensor readings from `rocm-smi`'s concise view; junction temperature was not polled during these runs, so they do not establish thermal margin against the 80 C warning threshold. `rocm-smi --showtemp` reports the junction sensor and must be used for the guarded long-context run. The result supports keeping J=40 for that check, but does not qualify 64K performance or justify changing the default.
 
-A second simultaneous 4K J=40 screen changed only `-ub` from 1024 to 2048. The 2048-token microbatch took 14.9926 s on GPU0 and 14.9865 s on GPU2, compared with the corresponding 1024-token candidate means of 15.0597 s and 15.0041 s. These one-sample-per-card deltas are only 0.4% and 0.1%, too small to establish a gain. Peak sampled junctions were 45 C and 44 C. Keep 1024 as the working setting: the larger microbatch showed no useful improvement in this screen and uses more activation memory.
+A second simultaneous 4K J=40 screen changed only `-ub` from 1024 to 2048. The 2048-token microbatch took 14.9926 s on GPU0 and 14.9865 s on GPU2, compared with the corresponding 1024-token candidate means of 15.0597 s and 15.0041 s. These one-sample-per-card deltas are only 0.4% and 0.1%, too small to establish a gain. Peak sampled edge temperatures were 45 C and 44 C; junction was not polled during those runs. Keep 1024 as the working setting: the larger microbatch showed no useful improvement in this screen and uses more activation memory.
+
+An 8K J=40 run on GPU2 with `-ub 2048` took 30.3458 s (269.955 tok/s), compared with the two `-ub 1024` J=40 samples at 30.399 s and 30.404 s. The difference is 0.18%, not a useful measured gain. The highest sampled edge temperature was 53 C. Junction was not sampled during the run; the later idle `rocm-smi --showtemp` reading was 43 C and is not a peak. Do not use edge temperature alone for the 80/85 C junction guard.
 
 ## Decode smoke with the J=40 selector
 
