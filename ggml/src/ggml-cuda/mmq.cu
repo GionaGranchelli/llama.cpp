@@ -206,11 +206,9 @@ void ggml_cuda_mul_mat_q(
             ncols_opt >= 32 && getenv("GGML_CUDA_MMQ_Q4K_J32") != nullptr;
         const bool q4k_j40 = src0->type == GGML_TYPE_Q4_K && cc == GGML_CUDA_CC_VEGA20 &&
             ncols_opt >= 40 && getenv("GGML_CUDA_MMQ_Q4K_J40") != nullptr;
-        const bool q4k_j48 = src0->type == GGML_TYPE_Q4_K && cc == GGML_CUDA_CC_VEGA20 &&
-            ncols_opt >= 48 && getenv("GGML_CUDA_MMQ_Q4K_J48") != nullptr;
 
         for (int J = 8; J <= 128 && ntiles_J_best > 1; J += 8) {
-            if ((q4k_j32 && J > 32) || (q4k_j40 && J > 40) || (q4k_j48 && J > 48)) {
+            if ((q4k_j32 && J > 32) || (q4k_j40 && J > 40)) {
                 continue;
             }
             const ggml_cuda_mmq_config config = ggml_cuda_mmq_get_config(src0->type, J, fallback, cc, prec_src1);
