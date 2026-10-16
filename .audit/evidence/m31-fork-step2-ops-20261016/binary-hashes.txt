@@ -1,0 +1,2 @@
+b90475a7fe602362a75a644cb71ac980aa3bec19d49e315cf3662db01c5fd473  /tmp/m31-fork-candidate/build-mi50/bin/llama-bench
+ebeeca504fe1bf3285a9d1269d35173a64d6fa79fcb4733ea2316f84396b450c  /tmp/m31-fork-candidate/build-mi50/bin/test-backend-ops
