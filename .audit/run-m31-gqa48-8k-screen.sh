@@ -29,7 +29,8 @@ actual_model_sha="$(sha256sum "$model" | awk '{print $1}')"
 [[ "$actual_model_sha" == "$model_sha" ]] || { echo "model SHA mismatch: $actual_model_sha" >&2; exit 5; }
 
 if [[ ! -x "$build_dir/bin/llama-bench" ]]; then
-    podman run --rm -v "$workspace:/workspace" -w /workspace "$image" \
+    podman run --rm --security-opt seccomp=unconfined --security-opt label=disable \
+        -v "$workspace:/workspace" -w /workspace "$image" \
         cmake --build "$build_rel" --target llama-bench --parallel 4
 fi
 binary="$build_dir/bin/llama-bench"

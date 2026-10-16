@@ -11,9 +11,13 @@ Error: /workspace/build-gqa48 is not a directory
 ```
 
 The same worktree and build tree had previously produced `test-backend-ops`.
-This attempt therefore exposes a host/container mount or build-path discrepancy
-that must be inspected directly on the next Machinist pass. It produced no
-benchmark timings and no GPU inference.
+A follow-up host/container inspection found the build directory on the host,
+but a minimal container probe without `--security-opt label=disable` received
+`Permission denied` for `/workspace/build-gqa48`. The build-only Podman
+invocation omitted that option, while the existing test and inference
+containers include it. This is the likely cause of CMake's directory error.
+The runner now applies the same label setting during the build step. The
+benchmark still has not run.
 
 Preflight immediately before the attempt found no KFD processes; GPU0 was at
 28 C with a 225 W cap and GPU2 at 31 C with a 300 W cap. The intended screen
