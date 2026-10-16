@@ -1,9 +1,9 @@
 # GQA48 8K screen instrumentation note
 
 The container label fix allowed `llama-bench` to build, and both 8K paths
-completed on GPU2. The candidate log reports one sample at 36.957 s
-(221.662 prompt tok/s). However, the runner passed `-v`; the candidate emitted
-thousands of per-operation kernel-selection messages from the opt-in path.
+completed on GPU2. Default reported 33.920 s (241.509 prompt tok/s), and the
+candidate reported 36.957 s (221.662 prompt tok/s). However, the runner passed
+`-v`; the candidate emitted 800 per-operation kernel-selection messages from the opt-in path.
 That differs from the earlier quiet benchmark setup and can add host-side
 logging work during prefill. Do not use this run as a valid A/B timing.
 
