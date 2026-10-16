@@ -21,9 +21,9 @@
     "second_mi50_bdf": "0000:04:00.0",
     "second_mi50_idle_observed": true,
     "power_cap_w": 180,
-    "temperature_edge_c_current_sample": 30,
-    "temperature_junction_c_last_full_sample": 39,
-    "temperature_scope": "edge is current; junction is last full campaign sample; neither is a long-run peak",
+    "temperature_edge_c_current_sample": 28,
+    "temperature_junction_c_last_full_sample": 31,
+    "temperature_scope": "edge and junction are from the latest post-run4 preflight; neither is a long-run peak",
     "gate2_guard_peak_junction_c": 67,
     "gate2_guard_temperature_samples": 522,
     "target_vram_percent_observed": 65,
@@ -124,10 +124,11 @@
     "restart_restore_reuse_test": true
   },
   "aggregate_server_metrics": {
-    "prompt_tokens_processed": 469386,
-    "prompt_tokens_cached": 7542910,
-    "generated_tokens": 48279,
-    "average_decode_tokens_per_second_gauge": 11.3312,
+    "prompt_tokens_processed": 282105,
+    "prompt_tokens_cached": 2448140,
+    "generated_tokens": 25963,
+    "average_decode_tokens_per_second_gauge": null,
+    "sampled_after_run4": true,
     "use_as_qualification_evidence": false
   },
   "agent_task": {
@@ -135,20 +136,20 @@
     "repository_change_by_omp_verified": false,
     "predefined_acceptance_tests_passed_by_omp": false,
     "latest_attempt_timed_out": true,
-    "latest_attempt_interrupted_after_seconds": 1571,
+    "latest_attempt_interrupted_after_seconds": 846,
     "latest_attempt_turns_completed": 0,
     "latest_attempt_source_context_tokens": 68961,
-    "latest_attempt_max_prompt_context_tokens": 100776,
-    "latest_attempt_uncached_prompt_tokens": 96240,
-    "latest_attempt_cached_prompt_tokens": 622790,
-    "latest_attempt_prompt_seconds": 683.75,
-    "latest_attempt_generated_tokens": 10298,
-    "latest_attempt_decode_tokens_per_second_gauge": 11.466,
+    "latest_attempt_max_prompt_context_tokens": 98412,
+    "latest_attempt_uncached_prompt_tokens": null,
+    "latest_attempt_cached_prompt_tokens": null,
+    "latest_attempt_prompt_seconds": null,
+    "latest_attempt_generated_tokens": null,
+    "latest_attempt_decode_tokens_per_second_gauge": null,
     "latest_attempt_code_changes": 0,
-    "latest_attempt_tool_classes": ["read", "grep"],
-    "latest_attempt_thinking": "low",
-    "latest_attempt_transcript": "agent-session-run3-aborted.jsonl",
-    "latest_attempt_transcript_sha256": "6a11d68d28dad1872723cd9861b596095abe286e95f7cd60f2fe635c485597fd"
+    "latest_attempt_tool_classes": ["read", "grep", "glob", "lsp"],
+    "latest_attempt_thinking": "off",
+    "latest_attempt_transcript": "agent-session-run4-aborted.jsonl",
+    "latest_attempt_transcript_sha256": "cdf777cd9acfb6be71c5be2785bcee719841c744ebd4c8acf4966f50d88e9cc5"
   },
   "gate3_omp_attempts": [
     {
@@ -180,6 +181,22 @@
       "decode_tokens_per_second_gauge": 11.466,
       "transcript": "agent-session-run3-aborted.jsonl",
       "transcript_sha256": "6a11d68d28dad1872723cd9861b596095abe286e95f7cd60f2fe635c485597fd"
+    },
+    {
+      "run": 4,
+      "result": "INTERRUPTED_IN_TURN_1",
+      "elapsed_seconds": 846,
+      "thinking": "off",
+      "write_tools_available": false,
+      "task_worktree_clean": true,
+      "source_changes": 0,
+      "source_context_sha256": "e89c41cf2358eb89a283a0c392a9dcbc866298ec737d35b02eec77c2b5d9d8eb",
+      "source_context_tokens": 68961,
+      "max_prompt_context_tokens": 98412,
+      "server_reasoning_format": "deepseek",
+      "server_slot_processing_after_interrupt": false,
+      "transcript": "agent-session-run4-aborted.jsonl",
+      "transcript_sha256": "cdf777cd9acfb6be71c5be2785bcee719841c744ebd4c8acf4966f50d88e9cc5"
     }
   ],
   "gate3_guard_observation": {
