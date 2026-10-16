@@ -3,6 +3,7 @@ set -Eeuo pipefail
 
 gpu_id="${1:?usage: run-guarded-m31-64k.sh ROCM_INDEX [default|j40|dot4]}"
 variant="${2:-default}"
+ubatch="${M31_UBATCH:-1024}"
 workspace="${WORKSPACE:-/tmp/m31-gqa48-rocm721-20261016}"
 build_dir="${BUILD_DIR:-build-gqa48}"
 bench_binary="$workspace/$build_dir/bin/llama-bench"
@@ -18,6 +19,10 @@ esac
 case "$variant" in
     default|j40|dot4) ;;
     *) echo "variant must be default, j40, or dot4" >&2; exit 2 ;;
+esac
+case "$ubatch" in
+    1024|2048) ;;
+    *) echo "M31_UBATCH must be 1024 or 2048" >&2; exit 2 ;;
 esac
 
 if [[ ! -x "$bench_binary" || ! -f "$hip_backend" ]]; then
@@ -105,8 +110,8 @@ timestamp="$(date -u +%Y%m%dT%H%M%SZ)"
 run_dir="/tmp/m31-64k-${gpu_id}-${variant}-${timestamp}"
 container_name="m31-64k-${gpu_id}-${timestamp}"
 mkdir -p "$run_dir"
-printf 'source=%s\ngpu=%s\nbdf=%s\nvariant=%s\ncap0_uw=%s\ncap2_uw=%s\nmodel_sha256=%s\n' \
-    "$source_sha" "$gpu_id" "$target_bdf" "$variant" "$cap0" "$cap2" "$actual_model_sha" > "$run_dir/metadata.txt"
+printf 'source=%s\ngpu=%s\nbdf=%s\nvariant=%s\nubatch=%s\ncap0_uw=%s\ncap2_uw=%s\nmodel_sha256=%s\n' \
+    "$source_sha" "$gpu_id" "$target_bdf" "$variant" "$ubatch" "$cap0" "$cap2" "$actual_model_sha" > "$run_dir/metadata.txt"
 printf 'binary_sha256=%s\nhip_backend_sha256=%s\nbuild_dir=%s\n' \
     "$(sha256sum "$bench_binary" | awk '{print $1}')" \
     "$(sha256sum "$hip_backend" | awk '{print $1}')" "$build_dir" >> "$run_dir/metadata.txt"
@@ -125,7 +130,7 @@ podman run --rm --name "$container_name" --device=/dev/kfd --device=/dev/dri --g
     -v "$workspace:/workspace:Z" -v /home/machinist/models:/models:ro,z -w /workspace \
     localhost/miinfer-dev:rocm-7.2.1 \
     "./$build_dir/bin/llama-bench" -m /models/Qwen3.8-27B-Q4_K_M.gguf \
-    -p 65536 -n 0 -r 1 --no-warmup -b 2048 -ub 1024 -ctk q8_0 -ctv q8_0 \
+    -p 65536 -n 0 -r 1 --no-warmup -b 2048 -ub "$ubatch" -ctk q8_0 -ctv q8_0 \
     -fa on -ngl 99 -dev ROCm0 -o jsonl --progress > "$run_dir/benchmark.log" 2>&1 &
 bench_pid=$!
 started_epoch="$(date +%s)"
