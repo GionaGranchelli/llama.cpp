@@ -223,6 +223,7 @@ static constexpr __host__ __device__ uint32_t ggml_cuda_fattn_tile_get_config_am
     GGML_CUDA_FATTN_TILE_CONFIG_CASE(256, 256, 32, 256, 2,  32, 128)
     GGML_CUDA_FATTN_TILE_CONFIG_CASE(256, 256,  6, 192, 2,  32, 128)
     GGML_CUDA_FATTN_TILE_CONFIG_CASE(256, 256, 24, 384, 2,  32, 128)
+    GGML_CUDA_FATTN_TILE_CONFIG_CASE(256, 256, 48, 512, 1,  32, 128)
 
     GGML_CUDA_FATTN_TILE_CONFIG_CASE(320, 256, 32, 512, 1, 128,  64)
 
@@ -1415,7 +1416,14 @@ static void launch_fattn_tile_switch_ncols1(ggml_backend_cuda_context & ctx, ggm
     constexpr size_t nbytes_shared = 0;
 
     if constexpr (direct_q8 && ncols2 == 6) {
-        if (Q->ne[1] > 4) {
+        if (Q->ne[1] > 8) {
+            constexpr int ncols1 = 8;
+            const int nwarps = ggml_cuda_fattn_tile_get_nthreads(DKQ, DV, ncols1*ncols2, cc) / warp_size;
+            const int nbatch_fa = ggml_cuda_fattn_tile_get_nbatch_fa(DKQ, DV, ncols1*ncols2, cc);
+            fattn_kernel_t fattn_kernel = flash_attn_tile<DKQ, DV, ncols1, ncols2, use_logit_softcap, direct_q8, q8_dot4>;
+            launch_fattn<DV, ncols1, ncols2>
+                (ctx, dst, fattn_kernel, nwarps, nbytes_shared, nbatch_fa, false, false, false, false, warp_size, false, q8_dot4);
+        } else if (Q->ne[1] > 4) {
             constexpr int ncols1 = 4;
             const int nwarps = ggml_cuda_fattn_tile_get_nthreads(DKQ, DV, ncols1*ncols2, cc) / warp_size;
             const int nbatch_fa = ggml_cuda_fattn_tile_get_nbatch_fa(DKQ, DV, ncols1*ncols2, cc);
