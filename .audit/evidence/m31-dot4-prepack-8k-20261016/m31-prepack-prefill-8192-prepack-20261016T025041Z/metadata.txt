@@ -1,0 +1,23 @@
+source_base=e57aad81ae1fc5c8fa8d71a680a025be6e64b992
+variant=prepack
+prompt_tokens=8192
+gpu_index=2
+bdf=0000:88:00.0
+model_sha256=7e78da5d7e3ae28d178121f58646953305f3e5bd3cb46f4a75584e8b6c6fe169
+binary_sha256=181bc3c30d5b29fa9db4874272b792a8cbdfa91340e58c46757dbc02c9a5e2b7
+image=localhost/miinfer-dev:rocm-7.2.1
+start_junction_c=36.0
+ggml/src/ggml-cuda/fattn-common.cuh_sha256=7173c66b47d833b3e6fade9175024bdd60a89ae82fcca6e9a28c141e21e22f52
+ggml/src/ggml-cuda/fattn-tile.cuh_sha256=e78607b5ffb0c52e1c4ffe115e607a16d209e44afcdbe506dd758125b31630a2
+ggml/src/ggml-cuda/fattn.cu_sha256=ad052316ac069a0f685e300a23cf3978c6a4a08fac2d37b81cfc4c122f89062d
+stop_reason=
+run_status=0
+
+
+============================ ROCm System Management Interface ============================
+====================================== Temperature =======================================
+GPU[2]		: Temperature (Sensor edge) (C): 47.0
+GPU[2]		: Temperature (Sensor junction) (C): 50.0
+GPU[2]		: Temperature (Sensor memory) (C): 47.0
+==========================================================================================
+================================== End of ROCm SMI Log ===================================
