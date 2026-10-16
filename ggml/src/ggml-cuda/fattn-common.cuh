@@ -53,7 +53,8 @@ struct ggml_cuda_flash_attn_ext_f16_extra_data {
 // The opt-in gfx906 Q8 dot4 path adapts MIInfer's Qwen3 attention work to
 // llama.cpp's Q8_0 tensors and FLASH_ATTN_EXT contract. See the accompanying
 // MIInfer MIT notice in licenses/LICENSE-miinfer-q8-dot4.
-static constexpr size_t GGML_CUDA_FA_Q8_DOT4_ROW_BYTES = 256 + 8*sizeof(float);
+// Keep one FP32 query scale per 4-value dot4 group to limit quantization error.
+static constexpr size_t GGML_CUDA_FA_Q8_DOT4_ROW_BYTES = 256 + 64*sizeof(float);
 
 static inline bool ggml_cuda_fa_q8_dot4_prepack_enabled(const ggml_tensor * dst) {
     const ggml_tensor * Q = dst->src[0];
@@ -87,12 +88,12 @@ static __global__ void ggml_cuda_fa_q8_prepack_kernel(
     const float value = ((const float *) src)[dim]*scale;
     float amax = fabsf(value);
 #pragma unroll
-    for (int offset = 16; offset > 0; offset >>= 1) {
-        amax = fmaxf(amax, __shfl_xor_sync(0xffffffff, amax, offset, 32));
+    for (int offset = 2; offset > 0; offset >>= 1) {
+        amax = fmaxf(amax, __shfl_xor_sync(0xffffffff, amax, offset, 4));
     }
     const float qscale = amax/127.0f;
-    if (lane == 0) {
-        ((float *) (dst + 256))[block] = qscale;
+    if ((lane & 3) == 0) {
+        ((float *) (dst + 256))[dim/4] = qscale;
     }
     const int q = qscale == 0.0f ? 0 : max(-127, min(127, __float2int_rn(value/qscale)));
     dst[dim] = (char) q;

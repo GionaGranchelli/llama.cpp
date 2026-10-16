@@ -637,7 +637,7 @@ static __device__ __forceinline__ void flash_attn_tile_iter_KQ(
                             block_dot = ggml_cuda_dp4a(q4, k4, block_dot);
                         }
                         const float k_scale = __half2float(q8_K_scales[block*nbatch_fa + i_KQ]);
-                        const float block_sum = float(block_dot) * q_scales[block] * k_scale;
+                        const float block_sum = float(block_dot) * q_scales[block*8 + word_in_block] * k_scale;
                         KQ_acc[i_KQ_0/(np*warp_size)*cpw + jc0] += block_sum;
                     }
                 }
