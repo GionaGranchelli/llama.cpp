@@ -1644,6 +1644,7 @@ common_chat_msg common_chat_peg_parse(const common_peg_arena &          src_pars
                 mapper = std::make_unique<common_chat_peg_mapper>(msg);
             }
             mapper->from_ast(ctx.ast, result);
+            msg.tool_calls.clear();
 
             if (ctx.is_debug()) {
                 fprintf(stderr, "\nAST for partial parse (fail):\n%s\n", ctx.ast.dump().c_str());
@@ -1676,6 +1677,10 @@ common_chat_msg common_chat_peg_parse(const common_peg_arena &          src_pars
 
     if (!is_partial) {
         LOG_DBG("Parsed message: %s\n", common_chat_msgs_to_json_oaicompat({ msg }).at(0).dump().c_str());
+    }
+
+    if (is_partial) {
+        msg.tool_calls.clear();
     }
     return msg;
 }

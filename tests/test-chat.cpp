@@ -640,6 +640,23 @@ static common_chat_tool magic_int_tool{
     })",
 };
 
+static common_chat_tool web_search_tool{
+    /* .name = */ "web_search",
+    /* .description = */ "Search the web",
+    /* .parameters = */ R"({
+        "type": "object",
+        "properties": {
+            "sources": {
+                "type": "array",
+                "items": {
+                    "type": "object"
+                }
+            }
+        },
+        "required": ["sources"]
+    })",
+};
+
 static common_chat_tool amount_tool{
     /* .name = */ "amount",
     /* .description = */ "Amount converter",
@@ -1055,7 +1072,6 @@ const common_chat_msg message_assist_call_withopt =
 const common_chat_msg message_assist_call_content =
     simple_assist_msg("Hello, world!\nWhat's up?", "", "special_function", "{\"arg1\":1}");
 const common_chat_msg message_assist_call_empty_args  = simple_assist_msg("", "", "special_function");
-const common_chat_msg message_assist_call_cutoff_args = simple_assist_msg("", "", "special_function", "{\"arg");
 const common_chat_msg message_assist_call_thoughts =
     simple_assist_msg("", "I'm\nthinking", "special_function", "{\"arg1\":1}");
 const common_chat_msg message_assist_call_thoughts_unparsed =
@@ -1068,8 +1084,6 @@ const common_chat_msg message_assist_call_idx =
     simple_assist_msg("", "", "special_function", "{\"arg1\":1}", /* .id = */ "0");
 const common_chat_msg message_assist_thoughts_call_idx =
     simple_assist_msg("", "I'm\nthinking", "special_function", "{\"arg1\": 1}", /* id = */ "0");
-const common_chat_msg message_assist_thoughts_partial_call =
-    simple_assist_msg("", "I'm\nthinking", "special_function", "", /* id = */ "0");
 const common_chat_msg message_assist_call_python = simple_assist_msg("", "", "python", "{\"code\":\"print('hey')\"}");
 const common_chat_msg message_assist_call_python_lines =
     simple_assist_msg("", "", "python", "{\"code\":\"# This is a program:\\nprint('hey')\"}");
@@ -2122,11 +2136,11 @@ static void test_lfm2_parser(const std::string & template_path, bool detailed_de
         })
         .run();
 
-    // Partial tool call (streaming)
+    // Partial tool calls are withheld until the message is final.
     tst.test("<|tool_call_start|>[special_function(arg1=")
         .tools({ special_function_tool })
         .is_partial(true)
-        .expect(simple_assist_msg("", "", "special_function", "{\"arg1\": "))
+        .expect(simple_assist_msg("", ""))
         .run();
 
     // Tool call with empty arguments
@@ -2180,6 +2194,69 @@ static void test_template_output_peg_parsers(bool detailed_debug) {
             .tools({ special_function_tool })
             .expect(message_assist_call)
             .expect_rules({ "tool-0", "tool-0-arg-0" })
+            .run();
+
+        // Partial tool calls are withheld until the message is final.
+        tst.test(
+               "<tool_call>\n"
+               "<function=web_search>\n"
+               "<parameter=sources>\n"
+               "[ {\"type\": \"web\"},\n")
+            .enable_thinking(false)
+            .reasoning_format(COMMON_REASONING_FORMAT_AUTO)
+            .tools({ web_search_tool })
+            .is_partial(true)
+            .expect(simple_assist_msg("", ""))
+            .run();
+
+        // A complete call is still withheld while the message is partial.
+        tst.test(
+               "<tool_call>\n"
+               "<function=web_search>\n"
+               "<parameter=sources>\n"
+               "[{\"type\": \"web\"}, {\"type\": \"doc\"}]\n"
+               "</parameter>\n"
+               "</function>\n"
+               "</tool_call>")
+            .enable_thinking(false)
+            .reasoning_format(COMMON_REASONING_FORMAT_AUTO)
+            .tools({ web_search_tool })
+            .is_partial(true)
+            .expect(simple_assist_msg("", ""))
+            .run();
+
+        // A final complete call returns its arguments.
+        tst.test(
+               "<tool_call>\n"
+               "<function=web_search>\n"
+               "<parameter=sources>\n"
+               "[{\"type\": \"web\"}, {\"type\": \"doc\"}]\n"
+               "</parameter>\n"
+               "</function>\n"
+               "</tool_call>")
+            .enable_thinking(false)
+            .reasoning_format(COMMON_REASONING_FORMAT_AUTO)
+            .tools({ web_search_tool })
+            .expect_tool_calls({
+                { "web_search", R"({"sources":[{"type": "web"}, {"type": "doc"}]})", {} },
+            })
+            .run();
+
+        tst.test(
+               "I need to search the web.\n"
+               "</think>\n\n"
+               "Let me search for it.\n"
+               "<tool_call>\n"
+               "<function=web_search>\n"
+               "<parameter=sources>\n"
+               "[{\"type\": \"web\"},\n")
+            .enable_thinking(true)
+            .reasoning_format(COMMON_REASONING_FORMAT_AUTO)
+            .tools({ web_search_tool })
+            .is_partial(true)
+            .expect_reasoning("I need to search the web.")
+            .expect_content("Let me search for it.\n")
+            .expect_tool_calls({})
             .run();
 
         tst.test(
@@ -2863,7 +2940,7 @@ static void test_template_output_peg_parsers(bool detailed_debug) {
             .reasoning_format(COMMON_REASONING_FORMAT_DEEPSEEK)
             .tools({ special_function_tool })
             .is_partial(true)
-            .expect(message_assist_thoughts_partial_call)
+            .expect(message_assist_thoughts_no_content)
             .run();
 
         tst.test(
@@ -2970,7 +3047,7 @@ static void test_template_output_peg_parsers(bool detailed_debug) {
             .expect(message_assist_thoughts)
             .run();
 
-        // Partial tool call (streaming): name/id resolved before arguments arrive.
+        // Partial tool calls are withheld until the message is final.
         tst.test(
                "I'm\nthinking<|END_THINKING|>"
                "<|START_ACTION|>[\n"
@@ -2978,7 +3055,7 @@ static void test_template_output_peg_parsers(bool detailed_debug) {
             .reasoning_format(COMMON_REASONING_FORMAT_DEEPSEEK)
             .tools({ special_function_tool })
             .is_partial(true)
-            .expect(message_assist_thoughts_partial_call)
+            .expect(message_assist_thoughts_no_content)
             .run();
     }
 
@@ -5286,14 +5363,14 @@ static void test_template_output_peg_parsers(bool detailed_debug) {
             .expect(simple_assist_msg("", "", "empty_args", "{}", "functions.empty_args:0"))
             .run();
 
-        // Partial tool call (streaming)
+        // Partial tool calls are withheld until the message is final.
         tst.test(
                "<|tool_calls_section_begin|><|tool_call_begin|>functions.special_function:0<|tool_call_argument_begin|>"
                "{\"arg1\": ")
             .reasoning_format(COMMON_REASONING_FORMAT_AUTO)
             .tools({ special_function_tool })
             .is_partial(true)
-            .expect(simple_assist_msg("", "", "special_function", "{\"arg1\": ", "functions.special_function:0"))
+            .expect(simple_assist_msg("", ""))
             .run();
 
         // Three tool calls to verify counter continues incrementing
@@ -5596,12 +5673,12 @@ static void test_template_output_peg_parsers(bool detailed_debug) {
             ))
             .run();
 
-        // Partial tool call (streaming)
+        // Partial tool calls are withheld until the message is final.
         tst.test("<tool_call>\n{\"name\": \"special_function\", \"arguments\": {\"arg1\":")
             .tools({ special_function_tool })
             .enable_thinking(false)
             .is_partial(true)
-            .expect(simple_assist_msg("", "", "special_function", "{\"arg1\": "))
+            .expect(simple_assist_msg("", ""))
             .run();
 
         // Tool call with empty arguments
@@ -6400,7 +6477,7 @@ static void test_template_output_peg_parsers(bool detailed_debug) {
             .enable_thinking(false)
             .tools({ special_function_tool })
             .is_partial(true)
-            .expect(message_assist_call_cutoff_args)
+            .expect(simple_assist_msg("", ""))
             .run();
 
         // Continuation tests
