@@ -74,7 +74,7 @@ run_variant() {
         -v "$workspace:/workspace" -v /home/machinist/models:/models:ro,z -w /workspace "$image" \
         ./build-mi50/bin/llama-bench -m /models/Qwen3.8-27B-Q4_K_M.gguf \
         -p 8192 -n 0 -r 1 --no-warmup -b 2048 -ub 1024 \
-        -ctk q8_0 -ctv q8_0 -fa on -ngl 99 -dev ROCm0 -o jsonl --progress \
+        -ctk q8_0 -ctv q8_0 -fa on -ngl 99 -dev ROCm0 -o jsonl --progress -v \
         > "$run_dir/$variant.log" 2>&1 &
     local pid=$!
     local run_deadline=$((SECONDS + 180))
