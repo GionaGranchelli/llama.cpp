@@ -1566,7 +1566,7 @@ static void launch_fattn_tile_switch_ncols2(ggml_backend_cuda_context & ctx, ggm
     if constexpr (q8_dot4) {
         static_assert(direct_q8, "Q8 dot4 requires the direct-Q8 tile path");
         GGML_ASSERT(use_gqa_opt && gqa_ratio == 6 && DKQ == 256 && DV == 256);
-        launch_fattn_tile_switch_ncols1<DKQ, DV, 2, use_logit_softcap, true, true>(ctx, dst);
+        launch_fattn_tile_switch_ncols1<DKQ, DV, 6, use_logit_softcap, true, true>(ctx, dst);
         return;
     } else if constexpr (direct_q8) {
         if (use_gqa_opt && gqa_ratio == 6) {
