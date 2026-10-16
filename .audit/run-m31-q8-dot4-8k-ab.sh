@@ -14,6 +14,20 @@ mkdir -p "$run_dir"
 bus="$(rocm-smi -d "$gpu" --showbus 2>/dev/null | awk -F ': ' '/PCI Bus:/ {print $NF}')"
 [[ "$bus" == "$expected_bdf" ]] || { echo "GPU $gpu maps to '$bus', expected $expected_bdf" >&2; exit 2; }
 test -x "$workspace/build-mi50/bin/llama-bench"
+source_status="$(git -C "$workspace" status --porcelain)"
+[[ -z "$source_status" ]] || { echo "source worktree is dirty; use a clean, pinned build" >&2; exit 10; }
+rg -q 'GGML_CUDA_FA_Q8_DOT4_PREPACK' "$workspace/ggml/src/ggml-cuda/fattn-common.cuh" || {
+    echo 'source does not contain the Q8 dot4 prepack path' >&2
+    exit 11
+}
+rg -q 'selected opt-in GFX906 Q8 dot4' "$workspace/ggml/src/ggml-cuda/fattn.cu" || {
+    echo 'source does not contain the Q8 dot4 route confirmation' >&2
+    exit 12
+}
+strings "$workspace/build-mi50/bin/libggml-hip.so" | grep -q 'GGML_CUDA_FA_Q8_DOT4_PREPACK' || {
+    echo 'HIP backend binary does not contain the Q8 dot4 dispatch flag' >&2
+    exit 13
+}
 actual_model_sha="$(sha256sum "$model" | awk '{print $1}')"
 [[ "$actual_model_sha" == "$model_sha" ]] || { echo "model SHA mismatch: $actual_model_sha" >&2; exit 3; }
 kfd_info="$(rocm-smi --showpids 2>/dev/null)"
@@ -92,6 +106,12 @@ run_variant() {
     wait "$pid" || status=$?
     printf '%s_status=%s\n' "$variant" "$status" >> "$run_dir/metadata.txt"
     [[ "$status" == 0 ]] || return "$status"
+    local build_commit
+    build_commit="$(sed -n 's/.*"build_commit": "\([^"]*\)".*/\1/p' "$run_dir/$variant.log" | head -n1)"
+    [[ "$build_commit" == "$(git -C "$workspace" rev-parse --short=7 HEAD)" ]] || {
+        echo "$variant binary reports build commit '$build_commit', expected current source" >&2
+        return 14
+    }
     if [[ "$variant" == dot4 ]]; then
         grep -q 'GGML_CUDA_FA_Q8_DOT4_PREPACK' "$run_dir/$variant.log" || {
             echo 'dot4 run completed without a route-confirmation log' >&2

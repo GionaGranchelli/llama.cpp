@@ -1,0 +1,113 @@
+utc=2026-10-16T09:25:52Z
+source_commit=cf6a0205320f67df28d5ee12ac945a02a0a2fd02
+source_status= M .audit/m31-fork-campaign.tsv  M .audit/m31-fork-runtime-baseline-2026-10-16.md  M ggml/src/ggml-cuda/fattn-tile.cuh  M ggml/src/ggml-cuda/fattn.cu  M ggml/src/ggml-cuda/mmq.cu 
+fattn_tile_sha256=db17fc83eef85486d079243bd99a5ffadf8f8e2508c3d71343a0fe3398a1c92b
+fattn_sha256=9bf44ab3da5984b03ac96e8b1873e80ba1230b6874b080de1a1f4f8d2efc8be6
+llama_bench_sha256=52db83cccef8e1ae386727c6b15d75d6dfc019862f09e3e2de35a7494988dacd
+libggml_hip_sha256=01418abcacbf3ce3bdd4ccc3321cdf704fb8c98a6e1ac025b2ebfaa499b19920
+image_id=50ff28a28cc13a3ca7333cd0c70e322d16245967c5fdf0d30a1bf57bda80a512
+model_sha256=7e78da5d7e3ae28d178121f58646953305f3e5bd3cb46f4a75584e8b6c6fe169
+gpu=2
+gpu_bdf=0000:88:00.0
+power_cap_uw=300000000
+
+
+============================ ROCm System Management Interface ============================
+===================================== KFD Processes ======================================
+No KFD PIDs currently running
+==========================================================================================
+================================== End of ROCm SMI Log ===================================
+
+
+============================ ROCm System Management Interface ============================
+====================================== Temperature =======================================
+GPU[2]		: Temperature (Sensor edge) (C): 27.0
+GPU[2]		: Temperature (Sensor junction) (C): 31.0
+GPU[2]		: Temperature (Sensor memory) (C): 27.0
+==========================================================================================
+=================================== Current Fan Metric ===================================
+GPU[2]		: Fan Level: 37 (15%)
+GPU[2]		: Fan RPM: 0
+==========================================================================================
+================================== End of ROCm SMI Log ===================================
+default_start_junction_c=31.0
+default_status=0
+dot4_start_junction_c=38.0
+dot4 crossed 80 C warning at 80.0 C
+dot4_status=0
+utc,variant,junction_c
+2026-10-16T09:25:53Z,default,31.0
+2026-10-16T09:25:54Z,default,31.0
+2026-10-16T09:25:55Z,default,32.0
+2026-10-16T09:25:56Z,default,51.0
+2026-10-16T09:25:57Z,default,58.0
+2026-10-16T09:25:58Z,default,60.0
+2026-10-16T09:26:00Z,default,61.0
+2026-10-16T09:26:01Z,default,62.0
+2026-10-16T09:26:02Z,default,63.0
+2026-10-16T09:26:03Z,default,64.0
+2026-10-16T09:26:04Z,default,67.0
+2026-10-16T09:26:06Z,default,66.0
+2026-10-16T09:26:07Z,default,68.0
+2026-10-16T09:26:08Z,default,68.0
+2026-10-16T09:26:09Z,default,68.0
+2026-10-16T09:26:10Z,default,68.0
+2026-10-16T09:26:11Z,default,69.0
+2026-10-16T09:26:13Z,default,71.0
+2026-10-16T09:26:14Z,default,71.0
+2026-10-16T09:26:15Z,default,74.0
+2026-10-16T09:26:16Z,default,73.0
+2026-10-16T09:26:17Z,default,73.0
+2026-10-16T09:26:18Z,default,73.0
+2026-10-16T09:26:20Z,default,74.0
+2026-10-16T09:26:21Z,default,75.0
+2026-10-16T09:26:22Z,default,76.0
+2026-10-16T09:26:23Z,default,74.0
+2026-10-16T09:26:24Z,default,76.0
+2026-10-16T09:26:25Z,default,77.0
+2026-10-16T09:26:27Z,default,76.0
+2026-10-16T09:26:28Z,default,77.0
+2026-10-16T09:26:29Z,default,78.0
+2026-10-16T09:26:51Z,dot4,38.0
+2026-10-16T09:26:52Z,dot4,38.0
+2026-10-16T09:26:53Z,dot4,39.0
+2026-10-16T09:26:54Z,dot4,59.0
+2026-10-16T09:26:55Z,dot4,65.0
+2026-10-16T09:26:57Z,dot4,66.0
+2026-10-16T09:26:58Z,dot4,67.0
+2026-10-16T09:26:59Z,dot4,67.0
+2026-10-16T09:27:00Z,dot4,68.0
+2026-10-16T09:27:01Z,dot4,70.0
+2026-10-16T09:27:02Z,dot4,71.0
+2026-10-16T09:27:04Z,dot4,71.0
+2026-10-16T09:27:05Z,dot4,73.0
+2026-10-16T09:27:06Z,dot4,73.0
+2026-10-16T09:27:07Z,dot4,73.0
+2026-10-16T09:27:08Z,dot4,73.0
+2026-10-16T09:27:09Z,dot4,74.0
+2026-10-16T09:27:11Z,dot4,77.0
+2026-10-16T09:27:12Z,dot4,75.0
+2026-10-16T09:27:13Z,dot4,75.0
+2026-10-16T09:27:14Z,dot4,78.0
+2026-10-16T09:27:15Z,dot4,77.0
+2026-10-16T09:27:17Z,dot4,77.0
+2026-10-16T09:27:18Z,dot4,76.0
+2026-10-16T09:27:19Z,dot4,78.0
+2026-10-16T09:27:20Z,dot4,78.0
+2026-10-16T09:27:21Z,dot4,78.0
+2026-10-16T09:27:22Z,dot4,79.0
+2026-10-16T09:27:24Z,dot4,80.0
+2026-10-16T09:27:25Z,dot4,80.0
+2026-10-16T09:27:26Z,dot4,80.0
+2026-10-16T09:27:27Z,dot4,80.0
+ggml_cuda_init: found 1 ROCm devices (Total VRAM: 32752 MiB):
+  Device 0: AMD Radeon Graphics, gfx906:sramecc-:xnack- (0x906), VMM: no, Wave Size: 64, VRAM: 32752 MiB
+llama-bench: benchmark 1/1: starting
+llama-bench: benchmark 1/1: prompt run 1/1
+{"build_commit": "cf6a020", "build_number": 23, "cpu_info": "Intel(R) Xeon(R) CPU E5-2680 v4 @ 2.40GHz", "gpu_info": "AMD Radeon Graphics", "backends": "ROCm", "model_filename": "/models/Qwen3.8-27B-Q4_K_M.gguf", "model_type": "qwen35 27B Q4_K - Medium", "model_size": 17095778304, "model_n_params": 27320697856, "n_batch": 2048, "n_ubatch": 1024, "n_threads": 28, "cpu_mask": "0x0", "cpu_strict": false, "poll": 50, "type_k": "q8_0", "type_v": "q8_0", "n_gpu_layers": 99, "n_cpu_moe": 0, "split_mode": "layer", "main_gpu": 0, "no_kv_offload": false, "flash_attn": 1, "devices": "ROCm0", "tensor_split": "0.00", "tensor_buft_overrides": "none", "load_mode": "auto", "lazy_mode": "auto", "embeddings": false, "no_op_offload": 0, "no_host": false, "repack": true, "fit_target": 0, "fit_min_ctx": 0, "n_prompt": 8192, "n_gen": 0, "n_depth": 0, "test_time": "2026-10-16T09:25:56Z", "avg_ns": 33875217634, "stddev_ns": 0, "avg_ts": 241.828705, "stddev_ts": 0.000000, "samples_ns": [ 33875217634 ],"samples_ts": [ 241.829 ]}
+ggml_cuda_init: found 1 ROCm devices (Total VRAM: 32752 MiB):
+  Device 0: AMD Radeon Graphics, gfx906:sramecc-:xnack- (0x906), VMM: no, Wave Size: 64, VRAM: 32752 MiB
+llama-bench: benchmark 1/1: starting
+llama-bench: benchmark 1/1: prompt run 1/1
+{"build_commit": "cf6a020", "build_number": 23, "cpu_info": "Intel(R) Xeon(R) CPU E5-2680 v4 @ 2.40GHz", "gpu_info": "AMD Radeon Graphics", "backends": "ROCm", "model_filename": "/models/Qwen3.8-27B-Q4_K_M.gguf", "model_type": "qwen35 27B Q4_K - Medium", "model_size": 17095778304, "model_n_params": 27320697856, "n_batch": 2048, "n_ubatch": 1024, "n_threads": 28, "cpu_mask": "0x0", "cpu_strict": false, "poll": 50, "type_k": "q8_0", "type_v": "q8_0", "n_gpu_layers": 99, "n_cpu_moe": 0, "split_mode": "layer", "main_gpu": 0, "no_kv_offload": false, "flash_attn": 1, "devices": "ROCm0", "tensor_split": "0.00", "tensor_buft_overrides": "none", "load_mode": "auto", "lazy_mode": "auto", "embeddings": false, "no_op_offload": 0, "no_host": false, "repack": true, "fit_target": 0, "fit_min_ctx": 0, "n_prompt": 8192, "n_gen": 0, "n_depth": 0, "test_time": "2026-10-16T09:26:54Z", "avg_ns": 33890263460, "stddev_ns": 0, "avg_ts": 241.721343, "stddev_ts": 0.000000, "samples_ns": [ 33890263460 ],"samples_ts": [ 241.721 ]}
+evidence=/tmp/m31-q8-dot4-8k-ab-20261016T092507Z
