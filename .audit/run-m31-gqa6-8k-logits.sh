@@ -101,7 +101,7 @@ run_variant() {
         -e "ROCR_VISIBLE_DEVICES=$gpu" -e "LD_LIBRARY_PATH=/workspace/$(basename "$build_dir")/bin" "${extra_env[@]}" \
         -v "$workspace:/workspace" -v /home/machinist/models:/models:ro -v "$run_dir:/artifacts" -w /workspace "$image" \
         "./$(basename "$build_dir")/bin/llama-debug" -m /models/Qwen3.8-27B-Q4_K_M.gguf \
-        -f /artifacts/prompt.txt -c 16384 -b 2048 -ub 1024 -ctk q8_0 -ctv q8_0 \
+        -f /artifacts/prompt.txt -c 16384 -b 16384 -ub 1024 -ctk q8_0 -ctv q8_0 \
         -fa on -ngl 99 -dev ROCm0 --save-logits --logits-output-dir "$output_dir" -v \
         > "$run_dir/$variant.log" 2>&1 &
     local pid=$!
