@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
 
-gpu_id="${1:?usage: run-guarded-m31-64k.sh ROCM_INDEX [default|j40]}"
+gpu_id="${1:?usage: run-guarded-m31-64k.sh ROCM_INDEX [default|j40|dot4]}"
 variant="${2:-default}"
 workspace="${WORKSPACE:-/tmp/m31-gqa48-rocm721-20261016}"
 build_dir="${BUILD_DIR:-build-gqa48}"
@@ -16,8 +16,8 @@ case "$gpu_id" in
     *) echo "GPU index must be 0 or 2" >&2; exit 2 ;;
 esac
 case "$variant" in
-    default|j40) ;;
-    *) echo "variant must be default or j40" >&2; exit 2 ;;
+    default|j40|dot4) ;;
+    *) echo "variant must be default, j40, or dot4" >&2; exit 2 ;;
 esac
 
 if [[ ! -x "$bench_binary" || ! -f "$hip_backend" ]]; then
@@ -27,6 +27,10 @@ fi
 if [[ "$variant" == j40 ]] && ! grep -q 'GGML_CUDA_MMQ_Q4K_J40' "$workspace/ggml/src/ggml-cuda/mmq.cu"; then
     echo "Refusing J=40 run: selector is absent from the source tree" >&2
     exit 9
+fi
+if [[ "$variant" == dot4 ]] && ! grep -q 'GGML_CUDA_FA_Q8_DOT4_PREPACK' "$workspace/ggml/src/ggml-cuda/fattn.cu"; then
+    echo "Refusing dot4 run: selector is absent from the source tree" >&2
+    exit 11
 fi
 source_sha="$(git -C "$workspace" rev-parse HEAD)"
 source_status="$(git -C "$workspace" status --short)"
@@ -90,17 +94,20 @@ printf 'utc,junction_c\n' > "$run_dir/temperature.csv"
 extra_env=()
 if [[ "$variant" == j40 ]]; then
     extra_env=(-e GGML_CUDA_MMQ_Q4K_J40=1)
+elif [[ "$variant" == dot4 ]]; then
+    extra_env=(-e GGML_CUDA_FA_Q8_DOT4_PREPACK=1)
 fi
 
 podman run --rm --name "$container_name" --device=/dev/kfd --device=/dev/dri --group-add video \
     --security-opt seccomp=unconfined --security-opt label=disable \
-    -e "ROCR_VISIBLE_DEVICES=$gpu_id" "${extra_env[@]}" \
+    -e "ROCR_VISIBLE_DEVICES=$gpu_id" -e "LD_LIBRARY_PATH=/workspace/$build_dir/bin" "${extra_env[@]}" \
     -v "$workspace:/workspace:Z" -v /home/machinist/models:/models:ro,z -w /workspace \
     localhost/miinfer-dev:rocm-7.2.1 \
     "./$build_dir/bin/llama-bench" -m /models/Qwen3.8-27B-Q4_K_M.gguf \
     -p 65536 -n 0 -r 1 --no-warmup -b 2048 -ub 1024 -ctk q8_0 -ctv q8_0 \
     -fa on -ngl 99 -dev ROCm0 -o jsonl --progress > "$run_dir/benchmark.log" 2>&1 &
 bench_pid=$!
+started_epoch="$(date +%s)"
 stop_reason=""
 warned=0
 
@@ -119,6 +126,11 @@ while kill -0 "$bench_pid" 2>/dev/null; do
     fi
     if awk -v t="$temp" 'BEGIN { exit !(t >= 84) }'; then
         stop_reason="junction reached ${temp} C; stopped before the 85 C hard limit"
+        podman kill "$container_name" >/dev/null 2>&1 || true
+        break
+    fi
+    if (( $(date +%s) - started_epoch >= 1800 )); then
+        stop_reason="benchmark exceeded 1800-second run limit"
         podman kill "$container_name" >/dev/null 2>&1 || true
         break
     fi
