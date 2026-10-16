@@ -226,9 +226,25 @@ struct ggml_cuda_mmq_config {
 
 #undef CASE
 
+// Match milpster's gfx906 Q4_K occupancy=1 tile without changing other types.
+static constexpr __host__ __device__ ggml_cuda_mmq_config ggml_cuda_mmq_get_config_gcn_q4k_occ1(
+        const ggml_type type, const int J, const bool fallback) {
+    const ggml_cuda_mmq_config config = ggml_cuda_mmq_get_config_gcn(type, J, fallback);
+    if (type != GGML_TYPE_Q4_K || config.type == GGML_TYPE_COUNT) {
+        return config;
+    }
+    return ggml_cuda_mmq_config(config.type, config.nthreads, 1, config.I, config.J,
+        config.sram_layout, config.K_vram, config.stream_k, config.fallback);
+}
+
 static __host__ ggml_cuda_mmq_config ggml_cuda_mmq_get_config(const ggml_type type, const int J, const bool fallback, const int cc, const ggml_prec prec_src1) {
     if (GGML_CUDA_CC_IS_AMD(cc)) {
         if (GGML_CUDA_CC_IS_GCN(cc)) {
+#if GGML_CUDA_MMQ_Q4K_OCCUPANCY_1
+            if (cc == GGML_CUDA_CC_VEGA20 && type == GGML_TYPE_Q4_K) {
+                return ggml_cuda_mmq_get_config_gcn_q4k_occ1(type, J, fallback);
+            }
+#endif
             return ggml_cuda_mmq_get_config_gcn(type, J, fallback);
         }
         if (GGML_CUDA_CC_IS_CDNA(cc)) {
@@ -264,6 +280,11 @@ static __host__ ggml_cuda_mmq_config ggml_cuda_mmq_get_config(const ggml_type ty
 static constexpr __device__ ggml_cuda_mmq_config ggml_cuda_mmq_get_config(ggml_type type, int J, bool fallback, ggml_prec prec_src1) {
 #ifdef GGML_USE_HIP
 #ifdef GCN
+#if defined(__gfx906__) && GGML_CUDA_MMQ_Q4K_OCCUPANCY_1
+    if (type == GGML_TYPE_Q4_K) {
+        return ggml_cuda_mmq_get_config_gcn_q4k_occ1(type, J, fallback);
+    }
+#endif
     return ggml_cuda_mmq_get_config_gcn(type, J, fallback);
 #elif defined(CDNA)
     return ggml_cuda_mmq_get_config_cdna(type, J, fallback);
