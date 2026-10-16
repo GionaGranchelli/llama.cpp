@@ -9,6 +9,11 @@ model=/home/machinist/models/Qwen3.8-27B-Q4_K_M.gguf
 model_sha=7e78da5d7e3ae28d178121f58646953305f3e5bd3cb46f4a75584e8b6c6fe169
 model_marker=/tmp/m31-qwen35-27b-model-sha256.txt
 prompt_tokens=65536
+max_runtime_seconds="${M31_MAX_SECONDS:-1200}"
+[[ "$max_runtime_seconds" =~ ^[1-9][0-9]*$ ]] || {
+    echo "M31_MAX_SECONDS must be a positive integer (got '$max_runtime_seconds')" >&2
+    exit 2
+}
 
 case "$gpu_id" in
     0) target_bdf=0000:04:00.0 ;;
@@ -67,8 +72,8 @@ run_dir="/tmp/m31-dot4-64k-${gpu_id}-${variant}-${timestamp}"
 container="m31-dot4-64k-${gpu_id}-${variant}-${timestamp}"
 mkdir -p "$run_dir"
 backend_lib="$workspace/build-mi50/bin/libggml-hip.so"
-printf 'variant=%s\nprompt_tokens=%s\ngpu_index=%s\nbdf=%s\nsource_commit=%s\nsource_status=%s\nsource_sha256=%s\nmodel_sha256=%s\nbinary_sha256=%s\nbackend_sha256=%s\nimage_id=%s\ncap0_uw=%s\ncap2_uw=%s\nstart_junction_c=%s\n' \
-    "$variant" "$prompt_tokens" "$gpu_id" "$bus" \
+printf 'variant=%s\nprompt_tokens=%s\nmax_runtime_seconds=%s\ngpu_index=%s\nbdf=%s\nsource_commit=%s\nsource_status=%s\nsource_sha256=%s\nmodel_sha256=%s\nbinary_sha256=%s\nbackend_sha256=%s\nimage_id=%s\ncap0_uw=%s\ncap2_uw=%s\nstart_junction_c=%s\n' \
+    "$variant" "$prompt_tokens" "$max_runtime_seconds" "$gpu_id" "$bus" \
     "$(git -C "$workspace" rev-parse HEAD)" \
     "$(git -C "$workspace" status --short | tr '\n' ' ')" \
     "$(sha256sum "$workspace/ggml/src/ggml-cuda/fattn-tile.cuh" | awk '{print $1}')" \
@@ -98,13 +103,21 @@ podman run --rm --name "$container" --device=/dev/kfd --device=/dev/dri --group-
 bench_pid=$!
 stop_reason=""
 warned=0
+started_epoch="$(date +%s)"
+last_heartbeat=-60
 while kill -0 "$bench_pid" 2>/dev/null; do
+    now_epoch="$(date +%s)"
+    elapsed=$((now_epoch - started_epoch))
     now="$(date -u +%FT%TZ)"
     temp="$(rocm-smi -d "$gpu_id" --showtemp 2>/dev/null | awk '/Sensor junction/ {print $NF}')" || temp=""
     if [[ -z "$temp" ]]; then
         stop_reason='junction telemetry unavailable; fail-closed stop'
         podman kill "$container" >/dev/null 2>&1 || true
         break
+    fi
+    if (( elapsed - last_heartbeat >= 60 )); then
+        echo "$now ${variant}: elapsed=${elapsed}s junction=${temp} C" >&2
+        last_heartbeat="$elapsed"
     fi
     printf '%s,%s\n' "$now" "$temp" >> "$run_dir/temperature.csv"
     if (( warned == 0 )) && awk -v t="$temp" 'BEGIN { exit !(t >= 80) }'; then
@@ -113,6 +126,11 @@ while kill -0 "$bench_pid" 2>/dev/null; do
     fi
     if awk -v t="$temp" 'BEGIN { exit !(t >= 84) }'; then
         stop_reason="junction reached ${temp} C; stopped before 85 C"
+        podman kill "$container" >/dev/null 2>&1 || true
+        break
+    fi
+    if (( elapsed >= max_runtime_seconds )); then
+        stop_reason="run exceeded ${max_runtime_seconds}s time limit"
         podman kill "$container" >/dev/null 2>&1 || true
         break
     fi
