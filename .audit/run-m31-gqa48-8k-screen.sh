@@ -158,15 +158,25 @@ run_variant() {
     [[ "$status" == 0 && -z "$stop_reason" ]]
 }
 
-run_variant default
-if [[ "$run_candidate" == 1 ]]; then
-    run_variant candidate
+run_status=0
+if run_variant default; then
+    if [[ "$run_candidate" == 1 ]]; then
+        if run_variant candidate; then
+            :
+        else
+            run_status=$?
+        fi
+    fi
+else
+    run_status=$?
 fi
-rocm-smi -d "$gpu" --showtemp >> "$run_dir/metadata.txt"
-printf 'default result: '
-awk '/"n_prompt": 8192/ { result = $0 } END { if (result) print result; else exit 1 }' "$run_dir/default.log"
-if [[ "$run_candidate" == 1 ]]; then
-    printf 'candidate result: '
-    awk '/"n_prompt": 8192/ { result = $0 } END { if (result) print result; else exit 1 }' "$run_dir/candidate.log"
-fi
+rocm-smi -d "$gpu" --showtemp >> "$run_dir/metadata.txt" 2>&1 || true
+printf '\n--- metadata ---\n'
+cat "$run_dir/metadata.txt"
+for variant in default candidate; do
+    [[ -f "$run_dir/$variant.log" ]] || continue
+    printf '\n--- %s log ---\n' "$variant"
+    cat "$run_dir/$variant.log"
+done
 echo "evidence=$run_dir"
+exit "$run_status"
