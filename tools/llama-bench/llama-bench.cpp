@@ -2175,12 +2175,17 @@ static bool test_prompt(llama_context * ctx, int n_prompt, int n_batch, int n_th
     std::vector<llama_token> tokens(n_batch);
 
     int n_processed = 0;
+    uint64_t prompt_hash = 14695981039346656037ULL;
 
     while (n_processed < n_prompt) {
         int n_tokens = std::min(n_prompt - n_processed, n_batch);
         tokens[0]    = n_processed == 0 && llama_vocab_get_add_bos(vocab) ? llama_vocab_bos(vocab) : std::rand() % n_vocab;
         for (int i = 1; i < n_tokens; i++) {
             tokens[i] = std::rand() % n_vocab;
+        }
+        for (int i = 0; i < n_tokens; i++) {
+            prompt_hash ^= static_cast<uint32_t>(tokens[i]);
+            prompt_hash *= 1099511628211ULL;
         }
         common_batch batch = common_batch_get_one(ctx, tokens.data(), n_tokens);
         int res = llama_process(ctx, LLAMA_PROCESS_TYPE_DECODE, batch.get());
@@ -2192,6 +2197,9 @@ static bool test_prompt(llama_context * ctx, int n_prompt, int n_batch, int n_th
     }
 
     llama_synchronize(ctx);
+    if (getenv("M31_PROMPT_HASH") != nullptr) {
+        fprintf(stderr, "M31 prompt tokens=%d fnv1a64=%016llx\n", n_prompt, (unsigned long long) prompt_hash);
+    }
     return true;
 }
 

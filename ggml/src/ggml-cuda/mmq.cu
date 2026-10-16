@@ -4,6 +4,7 @@
 #include "mmid.cuh"
 
 #include <cstdint>
+#include <atomic>
 
 static void ggml_cuda_mul_mat_q_switch_type(ggml_backend_cuda_context & ctx, const mmq_args & args, cudaStream_t stream, const ggml_prec prec_src1) {
     switch (args.type_x) {
@@ -228,8 +229,15 @@ void ggml_cuda_mul_mat_q(
                 ntiles_J_best = ntiles_x;
             }
         }
+        GGML_ASSERT(J_best > 0);
+        if (src0->type == GGML_TYPE_Q4_K && getenv("GGML_CUDA_MMQ_Q4K_ROUTE_LOG") != nullptr) {
+            static std::atomic_flag route_logged = ATOMIC_FLAG_INIT;
+            if (!route_logged.test_and_set()) {
+                GGML_LOG_INFO("%s: M31 Q4_K MMQ selected J=%d ncols=%lld cc=%d j40=%d\n",
+                    __func__, J_best, (long long) ncols_opt, cc, q4k_j40);
+            }
+        }
     }
-    GGML_ASSERT(J_best > 0);
 
     // A tile of size J can read in at most J - 1 extra columns.
     // For simplicity, round up the padding of a full tile to a multiple of the number of bytes that nthreads can load in parallel.
