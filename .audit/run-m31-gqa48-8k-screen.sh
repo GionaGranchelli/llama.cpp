@@ -5,6 +5,8 @@ workspace="${M31_CANDIDATE_WORKSPACE:-/tmp/m31-gqa48-rocm721-20261016}"
 build_dir="${M31_BUILD_DIR:-$workspace/build-gqa48}"
 image="localhost/miinfer-dev:rocm-7.2.1"
 gpu="${M31_GPU:-2}"
+ubatch="${M31_UB:-1024}"
+run_candidate="${M31_RUN_CANDIDATE:-1}"
 model="/home/machinist/models/Qwen3.8-27B-Q4_K_M.gguf"
 model_sha="7e78da5d7e3ae28d178121f58646953305f3e5bd3cb46f4a75584e8b6c6fe169"
 case "$gpu" in
@@ -16,6 +18,14 @@ case "$build_dir" in
     "$workspace"/*) build_rel="${build_dir#"$workspace"/}" ;;
     *) echo "M31_BUILD_DIR must be inside M31_CANDIDATE_WORKSPACE" >&2; exit 2 ;;
 esac
+[[ "$ubatch" =~ ^[0-9]+$ ]] && (( ubatch > 0 && ubatch <= 2048 )) || {
+    echo "M31_UB must be an integer from 1 to 2048" >&2
+    exit 2
+}
+[[ "$run_candidate" == 0 || "$run_candidate" == 1 ]] || {
+    echo "M31_RUN_CANDIDATE must be 0 or 1" >&2
+    exit 2
+}
 
 timestamp="$(date -u +%Y%m%dT%H%M%SZ)"
 run_dir="${M31_EVIDENCE_ROOT:-/tmp}/m31-gqa48-8k-screen-gpu${gpu}-${timestamp}"
@@ -59,8 +69,8 @@ image_id="$(podman image inspect --format '{{.Id}}' "$image")"
     printf 'source_sha256=%s\nbinary_sha256=%s\nbackend_sha256=%s\n' \
         "$(sha256sum "$workspace/ggml/src/ggml-cuda/fattn-tile.cuh" | awk '{print $1}')" \
         "$(sha256sum "$binary" | awk '{print $1}')" "$(sha256sum "$backend" | awk '{print $1}')"
-    printf 'image_id=%s\nmodel_sha256=%s\ngpu_index=%s\ngpu_bdf=%s\ncap0_uw=%s\ncap2_uw=%s\n' \
-        "$image_id" "$actual_model_sha" "$gpu" "$bus" "$cap0" "$cap2"
+    printf 'image_id=%s\nmodel_sha256=%s\ngpu_index=%s\ngpu_bdf=%s\ncap0_uw=%s\ncap2_uw=%s\nubatch=%s\nrun_candidate=%s\n' \
+        "$image_id" "$actual_model_sha" "$gpu" "$bus" "$cap0" "$cap2" "$ubatch" "$run_candidate"
     printf '%s\n' "$kfd_info"
     uptime
     nproc
@@ -87,14 +97,14 @@ run_variant() {
         sleep 10
     done
     started_epoch="$(date +%s)"
-    container="m31-gqa48-8k-${timestamp}-gpu${gpu}-${variant}"
+    container="m31-gqa48-8k-${timestamp}-gpu${gpu}-ub${ubatch}-${variant}"
     printf '\n%s start_junction_c=%s\n' "$variant" "$start_temp" >> "$run_dir/metadata.txt"
     podman run --rm --name "$container" --device=/dev/kfd --device=/dev/dri --group-add video \
         --security-opt seccomp=unconfined --security-opt label=disable \
         -e "ROCR_VISIBLE_DEVICES=$gpu" -e LD_LIBRARY_PATH="/workspace/$build_rel/bin" "${extra_env[@]}" \
         -v "$workspace:/workspace" -v /home/machinist/models:/models:ro -w /workspace "$image" \
         "./$build_rel/bin/llama-bench" -m /models/Qwen3.8-27B-Q4_K_M.gguf \
-        -p 8192 -n 0 -r 1 --no-warmup -b 2048 -ub 1024 \
+        -p 8192 -n 0 -r 1 --no-warmup -b 2048 -ub "$ubatch" \
         -ctk q8_0 -ctv q8_0 -fa on -ngl 99 -dev ROCm0 -o jsonl --progress \
         > "$run_dir/${variant}.log" 2>&1 &
     local pid=$!
@@ -127,10 +137,14 @@ run_variant() {
 }
 
 run_variant default
-run_variant candidate
+if [[ "$run_candidate" == 1 ]]; then
+    run_variant candidate
+fi
 rocm-smi -d "$gpu" --showtemp >> "$run_dir/metadata.txt"
-for variant in default candidate; do
-    printf '%s result: ' "$variant"
-    awk '/"n_prompt": 8192/ { result = $0 } END { if (result) print result; else exit 1 }' "$run_dir/$variant.log"
-done
+printf 'default result: '
+awk '/"n_prompt": 8192/ { result = $0 } END { if (result) print result; else exit 1 }' "$run_dir/default.log"
+if [[ "$run_candidate" == 1 ]]; then
+    printf 'candidate result: '
+    awk '/"n_prompt": 8192/ { result = $0 } END { if (result) print result; else exit 1 }' "$run_dir/candidate.log"
+fi
 echo "evidence=$run_dir"
