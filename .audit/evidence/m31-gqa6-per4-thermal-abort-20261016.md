@@ -1,11 +1,12 @@
-# Per-four-value GQA6 dot4 candidate build and thermal abort
+# Per-four-value GQA6 dot4 candidate build and thermal aborts
 
 The corrected per-four-value query-scale implementation compiled successfully
-in the pinned ROCm container on Machinist. The guarded comparison then started
-the default path on GPU2 (`0000:88:00.0`), initially at 31 C junction. It
-reached the 84 C warning threshold, so the runner stopped it before the 85 C
-hard stop. The candidate did not start. This provides no numerical or timing
-result for the per-four-value candidate.
+in the pinned ROCm container on Machinist. The guarded comparison started the
+default path on GPU2 (`0000:88:00.0`), initially at 31 C junction, and then a
+second matched comparison started on GPU0 (`0000:04:00.0`), initially at 28 C.
+Both reached the 84 C warning threshold, so the runner stopped each before the
+85 C hard stop. Neither candidate run started. These attempts provide no
+numerical or timing result for the per-four-value candidate.
 
 ## Provenance
 
@@ -20,7 +21,18 @@ result for the per-four-value candidate.
 - Raw run directory: `/tmp/m31-gqa6-8k-logits-gpu2-20261016T090358Z`
 - Stop reason: junction reached 84.0 C; process ended with status 137
 
-The logits file was emitted in the default log, but this run is recorded as an
-abort because the process was killed by the guard and no matched candidate
-output exists. The runner now accepts GPU index and BDF overrides so the next
-matched pair can use GPU0 if its cooler operating point sustains the workload.
+## Cooler-card retry
+
+- Runner/source commit: `fe295d15806e900ba6de773108db9cefaa035bad`
+- GPU: index 0, BDF `0000:04:00.0`
+- Live power caps: GPU0 225 W, GPU2 225 W
+- Start junction: 28 C; stop reason: junction reached 84.0 C, status 137
+- Prompt SHA-256: `60c08ad04e653ca5abb082b34ff1b4f995623e5baa001ab6bbdfd4eaa3ef454a`
+- Raw run directory: `/tmp/m31-gqa6-8k-logits-gpu0-20261016T090650Z`
+
+The logits file was emitted in each default log, but both runs are recorded as
+aborts because the processes were killed by the guard and neither has a
+matched candidate output. The runner now accepts GPU index and BDF overrides.
+Both MI50s reaching the same threshold at the current 225 W caps points to a
+host cooling or power-limit issue rather than a card-specific difference; a
+lower cap is needed before another long prefill attempt.
