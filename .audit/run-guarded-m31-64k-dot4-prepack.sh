@@ -44,16 +44,24 @@ if (( cap0 > 180000000 || cap2 > 180000000 )); then
     exit 3
 fi
 
-bus="$(rocm-smi -d "$gpu_id" --showbus | awk -F ': ' '/PCI Bus/ {print $NF; exit}')"
+bus_info="$(rocm-smi -d "$gpu_id" --showbus)"
+bus="$(awk -F ': ' '/PCI Bus:/ && !found { print $NF; found=1 }' <<< "$bus_info")"
 [[ "$bus" == "$target_bdf" ]] || { echo "ROCm index $gpu_id maps to $bus" >&2; exit 4; }
-if ! rocm-smi --showpids | grep -q 'No KFD PIDs currently running'; then
+kfd_info="$(rocm-smi --showpids)"
+if [[ "$kfd_info" != *'No KFD PIDs currently running'* ]]; then
+    echo "$kfd_info" >&2
     echo "Refusing run: a KFD process is active" >&2
     exit 5
 fi
 actual_model_sha="$(sha256sum "$model" | awk '{print $1}')"
 [[ "$actual_model_sha" == "$model_sha" ]] || { echo "Model SHA mismatch: $actual_model_sha" >&2; exit 6; }
 
-start_temp="$(rocm-smi -d "$gpu_id" --showtemp | awk '/Sensor junction/ {print $NF; exit}')"
+read_junction() {
+    local temp_info
+    temp_info="$(rocm-smi -d "$gpu_id" --showtemp)" || return 1
+    awk '/Sensor junction/ && !found { print $NF; found=1 }' <<< "$temp_info"
+}
+start_temp="$(read_junction)" || start_temp=""
 if [[ -z "$start_temp" ]] || awk -v t="$start_temp" 'BEGIN { exit !(t > 40) }'; then
     echo "Refusing run: junction must start at or below 40 C (got '$start_temp')" >&2
     exit 7
@@ -94,7 +102,7 @@ warned=0
 
 while kill -0 "$bench_pid" 2>/dev/null; do
     now="$(date -u +%FT%TZ)"
-    temp="$(rocm-smi -d "$gpu_id" --showtemp | awk '/Sensor junction/ {print $NF; exit}')" || temp=""
+    temp="$(read_junction)" || temp=""
     if [[ -z "$temp" ]]; then
         stop_reason="junction telemetry unavailable; fail-closed stop"
         podman kill "$container_name" >/dev/null 2>&1 || true

@@ -64,7 +64,8 @@ if (( cap0 > 180000000 || cap2 > 180000000 )); then
     exit 3
 fi
 
-bus="$(rocm-smi -d "$gpu_id" --showbus | awk -F ': ' '/PCI Bus/ {print $NF; exit}')"
+bus_info="$(rocm-smi -d "$gpu_id" --showbus)"
+bus="$(awk -F ': ' '/PCI Bus:/ && !found { print $NF; found=1 }' <<< "$bus_info")"
 if [[ "$bus" != "$target_bdf" ]]; then
     echo "Refusing run: ROCm index $gpu_id maps to $bus, expected $target_bdf" >&2
     exit 4
@@ -90,7 +91,9 @@ read_junction() {
     [[ "$millidegrees" =~ ^[0-9]+$ ]] || return 1
     awk -v t="$millidegrees" 'BEGIN { printf "%.1f", t/1000 }'
 }
-if ! rocm-smi --showpids | grep -q 'No KFD PIDs currently running'; then
+kfd_info="$(rocm-smi --showpids)"
+if [[ "$kfd_info" != *'No KFD PIDs currently running'* ]]; then
+    echo "$kfd_info" >&2
     echo "Refusing run: KFD processes are already using a GPU" >&2
     exit 5
 fi
