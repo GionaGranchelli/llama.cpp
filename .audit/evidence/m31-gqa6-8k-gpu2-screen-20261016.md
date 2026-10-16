@@ -5,6 +5,17 @@ processes exited 0 with no thermal stop. Junction telemetry peaked at 81 C,
 below the runner's 84 C stop threshold. This is a prefill timing screen only;
 it did not generate tokens or compare logits.
 
+| Route requested | Prompt time | Prompt rate | Start junction |
+|---|---:|---:|---:|
+| Default | 33.901330475 s | 241.642434 tok/s | 31 C |
+| Dot4 candidate | 36.922799009 s | 221.868337 tok/s | 38 C |
+
+The candidate sample was 8.91% slower by wall time (8.18% lower prompt rate),
+but this is one sample per route and the candidate started 7 C warmer. The
+candidate environment flag was passed, but the saved log has no dispatch
+message, so selection of the dot4 kernel is unconfirmed. Treat this only as a
+negative directional screen, not a kernel performance verdict.
+
 ## Provenance
 
 - GPU: ROCm index 2, PCI BDF `0000:88:00.0`
@@ -24,8 +35,7 @@ it did not generate tokens or compare logits.
 - Raw run directory:
   `/tmp/m31-gqa48-8k-screen-gpu2-20261016T083942Z`
 
-The runner requested the opt-in dot4 candidate. The compact metadata and
-temperature trace were retrieved, but the first retrieval elided the long JSON
-result lines and did not show the dispatch line. Exact timings and route
-selection still need extraction from the raw logs. Do not infer a speedup or
-regression from this report; the screen is incomplete pending that extraction.
+The raw JSON fields and temperature trace were extracted from the remote logs.
+The route-selection message was not present in the saved candidate log. Exact
+metrics are recorded above; full-model correctness and route attribution are
+still open.
