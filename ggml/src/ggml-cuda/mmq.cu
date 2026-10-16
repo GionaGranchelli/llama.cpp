@@ -202,8 +202,13 @@ void ggml_cuda_mul_mat_q(
         }
 
         int ntiles_J_best = INT_MAX;
+        const bool q4k_j32 = src0->type == GGML_TYPE_Q4_K && cc == GGML_CUDA_CC_VEGA20 &&
+            ncols_opt >= 32 && getenv("GGML_CUDA_MMQ_Q4K_J32") != nullptr;
 
         for (int J = 8; J <= 128 && ntiles_J_best > 1; J += 8) {
+            if (q4k_j32 && J > 32) {
+                continue;
+            }
             const ggml_cuda_mmq_config config = ggml_cuda_mmq_get_config(src0->type, J, fallback, cc, prec_src1);
             if (config.type == GGML_TYPE_COUNT) {
                 continue;

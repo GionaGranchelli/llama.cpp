@@ -153,3 +153,39 @@ The direct-Q8 MFMA prototype did not run on MI50. `amd_mfma_available()` accepts
 The earlier `test-backend-ops` run and both 8K timings with that flag exercised the default route. In particular, the 35.967 s candidate and 35.951 s default readings on GPU2 cannot be used to judge the prototype. The observed lack of a route log during the verbose model run was the clue; inspecting the architecture guards established the cause. I removed the unreachable prototype.
 
 The real MI50 direct-Q8 candidate remains the GFX906 GQA tile route. I reran the exact 256-wide, GQA-6, Q8/Q8, 4K KV, 64-query case on GPU0 with `GGML_CUDA_FA_Q8_DIRECT_TILE=1`. The runtime logged `selected direct-Q8 GFX906 GQA tile attention`, and the HIP result passed its CPU-reference check (`1/1`). Earlier full-model screens of this route were slower than default at 8K (best six-head tile: 39.135 s vs 36.011 s). The next implementation should exploit GFX906's `sdot4`/DP4A path while sharing K/V work across the six query heads; another MFMA dispatch change cannot run on this GPU.
+
+## 8K kernel profile — matrix multiplication remains the largest measured cost
+
+On 2026-10-15 23:57 UTC, profiled one default-route 8K run on Machinist GPU2, BDF `0000:88:00.0`, unique ID `0x2152414173497dd3`. The source and binary were at `f83346b` / build 21, ROCm 7.2.1, model SHA-256 `7e78da5d7e3ae28d178121f58646953305f3e5bd3cb46f4a75584e8b6c6fe169`, Q8 K/V, Flash Attention, `-b 2048 -ub 1024`, 99 GPU layers, one sample without warmup. `GGML_CUDA_FA_Q8_DIRECT_TILE` was unset. The input completed in 33.968 s (241.171 tok/s) under profiling. GPU2 started at 32 C junction, reached 76 C, then cooled to 47 C after completion.
+
+Summing HIP dispatch durations from rocprofv3's `1_results.db` gives 33.403 s. The largest kernels were:
+
+| Kernel | Dispatch time |
+| --- | ---: |
+| `mul_mat_q<GGML_TYPE_Q4_K, 64, ...>` | 21.097 s |
+| `mul_mat_q<GGML_TYPE_Q6_K, 64, ...>` | 5.049 s |
+| `mul_mat_q<GGML_TYPE_Q5_K, 64, ...>` | 1.967 s |
+| Default `flash_attn_tile<256,256,16,2,...>` | 1.574 s |
+| `gated_delta_net_cuda<128,...>` | 1.550 s |
+
+The three listed quantized matrix kernels account for 28.112 s, about 84% of profiled dispatch time. Default attention is about 4.7%. From the matching 4K trace, attention grew about 3.9x when prompt length doubled, while Q4_K matrix time grew about 2.0x. Attention is growing faster but is still a small share at 8K. Do not infer 64K performance from this short-context profile; measure again at a thermally sustainable longer prefix before choosing a long-context attention rewrite.
+
+This profile changes the next source target: understand the `GGML_TYPE_Q4_K` `mul_mat_q` path and its GFX906 dispatch before changing it. The current direct-Q8 attention candidate is not a performance win at 4K and remains opt-in. The 64K full-model run is still blocked by thermal headroom and must not be retried until the power/cooling state is verified.
+
+## Q4_K MMQ J=128 screen — rejected
+
+Added an opt-in GFX906 Q4_K `J=128` MMQ configuration, keeping the default at `J=64`. On GPU2, matched 4K rocprofv3 traces used the same binary, model, cache, batch settings, and card. With the candidate flag, the trace confirmed `mul_mat_q<GGML_TYPE_Q4_K,128,...>` executed. Q4_K dispatch time rose from 10.544 s at J=64 to 20.058 s at J=128; total kernel dispatch time rose from 16.322 s to 25.822 s. The profiled model run took 26.331 s. This one-sample result rejects J=128 for this workload. The extra work per CTA appears to reduce useful parallelism enough to outweigh the larger tile; confirm that with register/occupancy counters only if a future result depends on it.
+
+Do not keep the J=128 configuration. The next small tile screen is J=32, which is already represented in the GCN table and tests the reverse hypothesis: more CTAs may help GFX906 saturate, at the cost of repeated weight loads. The `test-backend-ops` run under the J=128 flag passed 120/120 filtered Q4_K matrix cases, but its generated cases do not reach 128 columns, so that test did not exercise J=128; the full-model profile proves dispatch, not numerical equivalence to the reference.
+
+## Q8 sdot4 attention tile — rejected
+
+The opt-in GFX906 Q8 sdot4 GQA tile selected and built successfully, but the 4K profile showed 1,479 ms across 64 attention calls versus 405 ms across 64 default-tile calls. Those runs used separate MI50 cards, so treat the ratio as directional; the candidate also failed to beat the 8K full-model control in its one-sample screen. Remove the sdot4 tile code and keep the default Flash Attention path. The existing upstream Q8 cache expansion remains the control; this result does not rule out a different exact-Q attention schedule at 64K.
+
+## Q4_K MMQ J=32 — promising 8K full-model screen
+
+The opt-in selector is limited to `GGML_TYPE_Q4_K` on GFX906 and is disabled unless `GGML_CUDA_MMQ_Q4K_J32` is set. It selects the already-supported GCN `J=32` kernel for larger matrix batches; the production default remains J=64. On the matched GPU2 4K profile, J=32 reduced Q4_K dispatch time from 10.544 s to 9.332 s (-11.5%) and total kernel dispatch time from 16.322 s to 15.107 s (-7.4%). The J=32 kernel symbol was observed in rocprofv3 output.
+
+The Q4_K backend operator suite passed 120/120 cases with the J=32 flag enabled; its `n=64` cases execute J=32. Three J=32 8K model samples completed at 31.463 s, 31.485 s, and 31.512 s; two completed default samples took 33.869 s and 33.831 s. All used the same build, GPU2, model checksum, 8K prompt, Q8 K/V, Flash Attention, batch 2048, ubatch 1024, 99 GPU layers, and no warmup. The two thermally safe paired candidate samples had starts 34/36 C and peaks 83/82 C; their paired defaults started 35/37 C and peaked at 80/78 C. Those two samples give median wall time 31.474 s versus 33.850 s, about 7.0% lower. The third J=32 sample completed at 31.512 s but reached the 85 C hard stop; exclude it from the thermal-safe comparison.
+
+This is a promising 8K result, not a 64K qualification or grounds to change the default yet. The 180 W power cap was not active; GPU2 approached or reached the thermal stop at 300 W. Recheck the J=32 result after verified power/cooling settings, then run a guarded long-prefix test to see whether the gain holds at the actual target context.
