@@ -34,11 +34,13 @@ into LDS. This identifies the schedule and data movement as the next area to
 change, but does not isolate the cost of each component.
 
 The earlier 24-cell dot4 tile was also slower in the 2K profile. Enlarging it
-to 48 cells therefore did not solve the performance problem. Do not promote
-this candidate or repeat the same short-context timing. The next meaningful
-GPU measurement is a matched 64K screen only if both cards pass the current
-180 W power guard; otherwise continue source-level work without sustained GPU
-inference.
+to 48 cells therefore did not solve the performance problem. The next opt-in
+candidate keeps the dot4 math and prepack but uses the stock 16-query by
+2-head grouping (32 cells, 256 threads) to isolate arithmetic from the
+experimental six-head CTA schedule. Its GFX906 HIP target compiles under the
+local ROCm 6.2 toolchain, but runtime correctness and performance are still
+unverified. Run one focused matched 8K screen first; attempt 64K only if the
+operator and screen are promising and both cards pass the 180 W power guard.
 
 Run: `/tmp/m31-gqa48-8k-profile-gpu2-20261016T050033Z` on Machinist.
 Source commit: `176480a57a5b18be94efdc7f97b9130545775860`.

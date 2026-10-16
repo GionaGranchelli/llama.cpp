@@ -752,7 +752,7 @@ static __device__ __forceinline__ void flash_attn_tile_iter(
     float KQ_acc[nbatch_fa/(np*warp_size) * cpw] = {0.0f}; // Accumulators for KQ matrix multiplication.
 
     if constexpr (q8_dot4) {
-        static_assert(DKQ == 256 && nbatch_fa == 32, "Q8 dot4 staging expects the GFX906 GQA6 tile");
+        static_assert(DKQ == 256, "Q8 dot4 staging is implemented for D=256 only");
         constexpr int q8_words_per_row = DKQ/4;
         constexpr int q8_blocks_per_row = DKQ/32;
         const int thread_id = threadIdx.y*blockDim.x + threadIdx.x;
@@ -1150,7 +1150,7 @@ static __global__ void flash_attn_tile(
 
 #ifdef FAST_FP16_AVAILABLE
                 if constexpr (q8_dot4) {
-                    static_assert(direct_q8 && DKQ == 256 && ncols2 == 6,
+                    static_assert(direct_q8 && DKQ == 256 && (ncols2 == 2 || ncols2 == 6),
                                   "Q8 dot4 is restricted to the GFX906 D=256 GQA=6 path");
                     static_assert(cpy_ne_D == 4 || cpy_ne_D == 8,
                                   "Q8 dot4 query packing expects 4 or 8 values per lane");
@@ -1439,6 +1439,30 @@ static void launch_fattn_tile_switch_ncols1(ggml_backend_cuda_context & ctx, ggm
                 (ctx, dst, fattn_kernel, nwarps, nbytes_shared, nbatch_fa, false, false, false, false, warp_size, false, q8_dot4);
         }
         return;
+    } else if constexpr (q8_dot4 && ncols2 == 2) {
+        if (Q->ne[1] > 8) {
+            constexpr int ncols1 = 16;
+            const int nwarps = ggml_cuda_fattn_tile_get_nthreads(DKQ, DV, ncols1*ncols2, cc) / warp_size;
+            const int nbatch_fa = ggml_cuda_fattn_tile_get_nbatch_fa(DKQ, DV, ncols1*ncols2, cc);
+            fattn_kernel_t fattn_kernel = flash_attn_tile<DKQ, DV, ncols1, ncols2, use_logit_softcap, direct_q8, q8_dot4>;
+            launch_fattn<DV, ncols1, ncols2>
+                (ctx, dst, fattn_kernel, nwarps, nbytes_shared, nbatch_fa, false, false, false, false, warp_size, false, q8_dot4);
+        } else if (Q->ne[1] > 4) {
+            constexpr int ncols1 = 8;
+            const int nwarps = ggml_cuda_fattn_tile_get_nthreads(DKQ, DV, ncols1*ncols2, cc) / warp_size;
+            const int nbatch_fa = ggml_cuda_fattn_tile_get_nbatch_fa(DKQ, DV, ncols1*ncols2, cc);
+            fattn_kernel_t fattn_kernel = flash_attn_tile<DKQ, DV, ncols1, ncols2, use_logit_softcap, direct_q8, q8_dot4>;
+            launch_fattn<DV, ncols1, ncols2>
+                (ctx, dst, fattn_kernel, nwarps, nbytes_shared, nbatch_fa, false, false, false, false, warp_size, false, q8_dot4);
+        } else {
+            constexpr int ncols1 = 4;
+            const int nwarps = ggml_cuda_fattn_tile_get_nthreads(DKQ, DV, ncols1*ncols2, cc) / warp_size;
+            const int nbatch_fa = ggml_cuda_fattn_tile_get_nbatch_fa(DKQ, DV, ncols1*ncols2, cc);
+            fattn_kernel_t fattn_kernel = flash_attn_tile<DKQ, DV, ncols1, ncols2, use_logit_softcap, direct_q8, q8_dot4>;
+            launch_fattn<DV, ncols1, ncols2>
+                (ctx, dst, fattn_kernel, nwarps, nbytes_shared, nbatch_fa, false, false, false, false, warp_size, false, q8_dot4);
+        }
+        return;
     } else {
 
 #ifdef GGML_USE_HIP
@@ -1542,7 +1566,7 @@ static void launch_fattn_tile_switch_ncols2(ggml_backend_cuda_context & ctx, ggm
     if constexpr (q8_dot4) {
         static_assert(direct_q8, "Q8 dot4 requires the direct-Q8 tile path");
         GGML_ASSERT(use_gqa_opt && gqa_ratio == 6 && DKQ == 256 && DV == 256);
-        launch_fattn_tile_switch_ncols1<DKQ, DV, 6, use_logit_softcap, true, true>(ctx, dst);
+        launch_fattn_tile_switch_ncols1<DKQ, DV, 2, use_logit_softcap, true, true>(ctx, dst);
         return;
     } else if constexpr (direct_q8) {
         if (use_gqa_opt && gqa_ratio == 6) {
