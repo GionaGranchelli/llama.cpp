@@ -228,3 +228,13 @@ One simultaneous 4K screen compared `-ub2048` on GPU0 (`0000:04:00.0`) with `-ub
 ## Decode smoke with the J=40 selector
 
 On GPU2, ran one `-p 512 -n 64` llama-bench sample with the default dispatch and one with `GGML_CUDA_MMQ_Q4K_J40=1`. Generation throughput was 25.4135 tok/s with default dispatch and 25.4588 tok/s with J=40 enabled. This is effectively unchanged at the precision of a single sample. The J=40 selector requires at least 40 activation columns, while token-by-token decode uses a one-token batch, so this is a smoke check that the opt-in flag does not alter decode dispatch, not evidence of a decode speedup or a correctness comparison.
+
+## Q4_K MMQ J=48 — first 4K screen
+
+Added opt-in `GGML_CUDA_MMQ_Q4K_J48=1`, limited to GFX906 Q4_K MMQ and leaving default dispatch unchanged. Added a correctness case with `n=96`; J=48 is selected because it reduces the tile count below J=32/J=40 for this shape. The exact 1/1 case passed against CPU on both MI50s with the selector enabled. The prior 120-case Q4_K suites passed on both cards but did not exercise J=48; those are not counted as candidate-path coverage.
+
+Built the J=48 source at `1e6be5f82` in the pinned ROCm 7.2.1 image. The correctness case was added and corrected in follow-up commits `d6c810641` and `a159c21c1`. The benchmark binary was built from the same J=48 source. Model SHA-256 is `7e78da5d7e3ae28d178121f58646953305f3e5bd3cb46f4a75584e8b6c6fe169`. Command settings: `-p 4096 -n 0 -r 1 --no-warmup -b 2048 -ub 1024 -ctk q8_0 -ctv q8_0 -fa on -ngl 99 -dev ROCm0 -o jsonl --progress`.
+
+Ran one J=48 sample on GPU0 / BDF `0000:04:00.0` and one J=40 sample on GPU2 / BDF `0000:88:00.0` simultaneously. J=48 took `15.024882777 s` (`272.614 tok/s`); J=40 took `14.975473665 s` (`273.514 tok/s`). This cross-card difference is 0.33% and cannot establish a J=48 regression or gain. Junction was 28 C / 31 C before and 46 C / 47 C after the runs; no continuous peak sample was retained, so the post-run readings are not peak temperatures. The last recorded caps were 225 W / 300 W and were not reread during the samples.
+
+Next: swap J48 and J40 across the cards after cooldown, then compare at 8K only if the short-context crossover remains promising. Keep J=48 opt-in and do not infer 64K behavior from this screen.
