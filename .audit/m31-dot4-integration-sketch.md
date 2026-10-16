@@ -143,3 +143,16 @@ Decision: the block accumulator is a real but insufficient improvement. Keep
 it opt-in while checking longer-context behavior under the requested 180 W
 caps; do not promote it based on these single-sample 8K timings. The live caps
 at this checkpoint remain GPU0 225 W and GPU2 300 W.
+
+## Diagnostic 2K kernel profile
+
+The legacy ROCm `rocprof --stats --timestamp on` trace confirmed the selected
+dispatch. Over 32 launches, default attention took 111.329 ms total, while the
+Q8 dot4 attention kernel took 272.562 ms. Q prepack added 8.277 ms over 32
+launches. Q4_K MMQ J=64 accounted for 65.4% of summed default kernel time.
+These figures come from one instrumented run per path and are not wall-time
+benchmarks. They show the dot4 CTA, rather than the prepack launch, is the
+short-context cost to investigate. The 2K profile does not establish whether
+dot4 is better or worse at 64K; the target-context comparison remains the next
+decisive test. Kernel event CSVs and summaries are in
+`.audit/evidence/m31-q8-dot4-profile-20261016T040740Z/`.

@@ -30,8 +30,16 @@ change is justified.
 The latest prepack path was 7.8% slower by wall time than its same-build
 default sample. It improved 2.2% over the preceding prepack sample. Each cell
 is one run; these results do not establish a repeatable difference. The
-limiting component has not been profiled, so the extra prepack and staging work
-are hypotheses, not an identified cause.
+load average was not recorded, and the limiting component has not been
+profiled at 8K. A separate 2K profile found the dot4 attention kernel slower
+than default at that shape, but it does not quantify its share at 8K. Host
+contention and other effects are therefore not ruled out as causes of the
+8K wall-time difference.
+
+`rocprofv3` did not reach the workload: it could not load `libdw.so.1` in the
+container, and a host-library mount made it exit with SIGSEGV. The legacy
+`rocprof --stats --timestamp on` path did run successfully for the 2K
+diagnostic described in `.audit/evidence/m31-q8-dot4-profile-20261016.md`.
 
 The latest source hash is
 `b67463b1660df7cfedfbfb9339afc173fa89b6a8792c6c481a625734914ac31e`; benchmark

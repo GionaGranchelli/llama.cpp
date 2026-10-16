@@ -22,6 +22,26 @@ timestamp="$(date -u +%Y%m%dT%H%M%SZ)"
 run_dir="${M31_EVIDENCE_ROOT:-/tmp}/m31-dot4-lds-cli-gpu${gpu_id}-${timestamp}"
 mkdir -p "$run_dir"
 
+cap_for_bdf() {
+    local wanted="$1" card_path bdf cap_file
+    for card_path in /sys/class/drm/card[0-9]*; do
+        [[ -e "$card_path/device" ]] || continue
+        bdf="$(basename "$(readlink -f "$card_path/device")")"
+        [[ "$bdf" == "$wanted" ]] || continue
+        for cap_file in "$card_path"/device/hwmon/hwmon*/power1_cap; do
+            [[ -r "$cap_file" ]] && { cat "$cap_file"; return; }
+        done
+    done
+    return 1
+}
+
+cap0="$(cap_for_bdf 0000:04:00.0)"
+cap2="$(cap_for_bdf 0000:88:00.0)"
+(( cap0 <= 180000000 && cap2 <= 180000000 )) || {
+    echo "refusing CLI correctness run: MI50 caps are ${cap0}uW and ${cap2}uW; both must be <=180000000uW" >&2
+    exit 2
+}
+
 bus="$(rocm-smi -d "$gpu_id" --showbus 2>/dev/null | awk -F ': ' '/PCI Bus:/ {print $NF}')"
 [[ "$bus" == "$expected_bdf" ]] || { echo "GPU$gpu_id maps to '$bus', expected $expected_bdf" >&2; exit 2; }
 kfd_info="$(rocm-smi --showpids 2>/dev/null)"
@@ -36,9 +56,11 @@ prompt_sha="$(sha256sum "$prompt" | awk '{print $1}')"
     printf 'fattn_tile_sha256=%s\n' "$(sha256sum "$workspace/ggml/src/ggml-cuda/fattn-tile.cuh" | awk '{print $1}')"
     printf 'llama_cli_sha256=%s\n' "$(sha256sum "$workspace/build-mi50/bin/llama-cli" | awk '{print $1}')"
     printf 'libggml_hip_sha256=%s\n' "$(sha256sum "$workspace/build-mi50/bin/libggml-hip.so" | awk '{print $1}')"
-    printf 'image_id=%s\nmodel_sha256=%s\nprompt_sha256=%s\ngpu_bdf=%s\n' \
-        "$(podman image inspect --format '{{.Id}}' "$image")" "$actual_model_sha" "$prompt_sha" "$bus"
+    printf 'image_id=%s\nmodel_sha256=%s\nprompt_sha256=%s\ngpu_bdf=%s\ncap0_uw=%s\ncap2_uw=%s\n' \
+        "$(podman image inspect --format '{{.Id}}' "$image")" "$actual_model_sha" "$prompt_sha" "$bus" "$cap0" "$cap2"
     printf '%s\n' "$kfd_info"
+    uptime
+    nproc
     rocm-smi --showtemp
 } > "$run_dir/metadata.txt"
 printf 'utc,junction_c\n' > "$run_dir/temperature.csv"
