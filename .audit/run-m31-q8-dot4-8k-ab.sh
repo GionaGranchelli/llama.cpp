@@ -16,11 +16,11 @@ bus="$(rocm-smi -d "$gpu" --showbus 2>/dev/null | awk -F ': ' '/PCI Bus:/ {print
 test -x "$workspace/build-mi50/bin/llama-bench"
 source_status="$(git -C "$workspace" status --porcelain)"
 [[ -z "$source_status" ]] || { echo "source worktree is dirty; use a clean, pinned build" >&2; exit 10; }
-rg -q 'GGML_CUDA_FA_Q8_DOT4_PREPACK' "$workspace/ggml/src/ggml-cuda/fattn-common.cuh" || {
+grep -q 'GGML_CUDA_FA_Q8_DOT4_PREPACK' "$workspace/ggml/src/ggml-cuda/fattn-common.cuh" || {
     echo 'source does not contain the Q8 dot4 prepack path' >&2
     exit 11
 }
-rg -q 'selected opt-in GFX906 Q8 dot4' "$workspace/ggml/src/ggml-cuda/fattn.cu" || {
+grep -q 'selected opt-in GFX906 Q8 dot4' "$workspace/ggml/src/ggml-cuda/fattn.cu" || {
     echo 'source does not contain the Q8 dot4 route confirmation' >&2
     exit 12
 }
